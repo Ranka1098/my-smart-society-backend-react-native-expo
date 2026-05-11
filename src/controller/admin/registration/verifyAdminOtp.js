@@ -3,9 +3,9 @@
 // =========================
 
 import mongoose from "mongoose";
-import adminModel from "../../model/admin.js";
-import buildingModel from "../../model/building.js";
-import sendBuildingCode from "../../utils/sendBuildingCode.js";
+import adminModel from "../../../model/admin.js";
+import buildingModel from "../../../model/building.js";
+import sendBuildingCode from "../../../utils/sendBuildingCode.js";
 
 // ==============================
 // 🔹 Generate Unique Building Code

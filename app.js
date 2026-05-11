@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
+
 import express from "express";
 import cors from "cors";
 import connectDB from "./src/database/connectDB.js";
@@ -12,15 +13,26 @@ connectDB();
 const app = express();
 
 // middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(express.json());
 
 // test route
+app.get("/test", (req, res) => {
+  res.json({ success: true, message: "Server working fine" });
+});
+
 app.use("/api/admin", adminRouter);
 
 const PORT = process.env.PORT || 1098;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log("database connected successfully");
   console.log(`Server running on port ${PORT}`);
 });

@@ -1,5 +1,5 @@
-import adminModel from "../../model/admin.js";
-import sendEmailOtp from "../../utils/sendEmailOtp.js";
+import adminModel from "../../../model/admin.js";
+import sendEmailOtp from "../../../utils/sendEmailOtp.js";
 
 // OTP Generator
 const generateOtp = () => {

@@ -2,9 +2,9 @@
 // Code Name: adminRegister.js (Fixed Flats/Shops Save)
 // =========================
 
-import adminModel from "../../model/admin.js";
+import adminModel from "../../../model/admin.js";
 import bcrypt from "bcrypt";
-import sendEmailOtp from "../../utils/sendEmailOtp.js";
+import sendEmailOtp from "../../../utils/sendEmailOtp.js";
 
 // OTP Generator
 const generateOtp = () => {
