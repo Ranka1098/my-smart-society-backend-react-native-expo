@@ -6,6 +6,7 @@ import cors from "cors";
 import connectDB from "./src/database/connectDB.js";
 import dns from "dns";
 import adminRouter from "./src/routes/adminRouter.js";
+import authRouter from "./src/routes/authRoutes.js";
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 connectDB();
@@ -29,7 +30,7 @@ app.get("/test", (req, res) => {
 });
 
 app.use("/api/admin", adminRouter);
-
+app.use("/api/auth", authRouter);
 const PORT = process.env.PORT || 1098;
 
 app.listen(PORT, "0.0.0.0", () => {
