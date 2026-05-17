@@ -1,56 +1,9 @@
-// =========================
-// Code Name: memberModel.js (MyGate Production Model)
-// =========================
-
 import mongoose from "mongoose";
 
 const memberSchema = new mongoose.Schema(
   {
     // =========================
-    // ✅ BASIC DETAILS
-    // =========================
-    memberName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    email: {
-      type: String,
-      required: false,
-      lowercase: true,
-      trim: true,
-      default: null,
-    },
-
-    phone: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-    },
-
-    password: {
-      type: String,
-      required: true,
-    },
-
-    // =========================
-    // ✅ MEMBER ROLE IN FAMILY
-    // =========================
-    familyRole: {
-      type: String,
-      enum: ["Owner", "Tenant", "Wife", "Son", "Daughter", "Father", "Mother", "Other"],
-      default: "Other",
-    },
-
-    isPrimary: {
-      type: Boolean,
-      default: false, // ✅ Primary member = head of flat
-    },
-
-    // =========================
-    // ✅ UNIT DETAILS (MAIN CONCEPT)
+    // MEMBER TYPE
     // =========================
     memberType: {
       type: String,
@@ -58,71 +11,123 @@ const memberSchema = new mongoose.Schema(
       required: true,
     },
 
-    flatOrShopNo: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    // =========================
-    // ✅ OWNERSHIP STATUS
-    // =========================
-    status: {
+    memberStatus: {
       type: String,
       enum: ["Owner", "Tenant"],
       required: true,
     },
 
     // =========================
-    // ✅ BUILDING DETAILS
+    // BUILDING
     // =========================
     buildingCode: {
       type: String,
       required: true,
       trim: true,
+      index: true,
     },
 
-    buildingId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Building",
+    buildingName: {
+      type: String,
       required: true,
+      trim: true,
     },
 
     // =========================
-    // ✅ APPROVAL PERMISSIONS (MYGATE STYLE)
+    // UNIT
     // =========================
-    permissions: {
-      canApproveDelivery: {
-        type: Boolean,
-        default: true,
-      },
-      canApproveGuest: {
-        type: Boolean,
-        default: true,
-      },
-      canApproveService: {
-        type: Boolean,
-        default: true,
-      },
+    unitNo: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
     },
 
-    // =========================
-    // ✅ PUSH NOTIFICATION TOKEN
-    // =========================
-    deviceToken: {
+    shopName: {
       type: String,
       default: null,
+      trim: true,
     },
 
     // =========================
-    // ✅ OTP VERIFICATION
+    // OWNER DETAILS
+    // =========================
+    ownerName: {
+      type: String,
+      required: function () {
+        return this.role === "primary"; // family ke liye required nahi
+      },
+      trim: true,
+    },
+
+    ownerPhone: {
+      type: String,
+      required: function () {
+        return this.role === "primary"; // family ke liye required nahi
+      },
+      trim: true,
+    },
+
+    // =========================
+    // TENANT DETAILS
+    // =========================
+    renterName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    renterPhone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    // =========================
+    // MEMBER DETAILS
+    // =========================
+    fullName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    primaryPhone: {
+      type: String,
+      required: true,
+      unique: true,
+      sparse: true, // null pe unique skip
+      match: [/^[0-9]{10}$/, "Phone must be 10 digits"],
+    },
+
+    // =========================
+    // LOGIN (sirf primary ke liye)
+    // =========================
+    email: {
+      type: String,
+      default: null,
+      unique: true,
+      sparse: true, // null pe unique skip
+      lowercase: true,
+      trim: true,
+    },
+
+    password: {
+      type: String,
+      default: null,
+      minlength: 6,
+      select: false,
+    },
+
+    // =========================
+    // OTP
     // =========================
     otp: {
       type: String,
       default: null,
     },
 
-    otpExpireAt: {
+    otpExpires: {
       type: Date,
       default: null,
     },
@@ -133,26 +138,75 @@ const memberSchema = new mongoose.Schema(
     },
 
     // =========================
-    // ✅ ACCOUNT STATUS
+    // APPROVAL
     // =========================
-    isActive: {
-      type: Boolean,
-      default: true,
+    approvalStatus: {
+      type: String,
+      enum: ["Pending", "Approved", "Rejected"],
+      default: "Pending",
     },
 
-    isBlocked: {
-      type: Boolean,
-      default: false,
+    // =========================
+    // ROLE & RELATION
+    // =========================
+    role: {
+      type: String,
+      enum: ["primary", "family"],
+      default: "primary",
+    },
+
+    relation: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    // =========================
+    // DEVICE
+    // =========================
+    currentDeviceId: {
+      type: String,
+      default: null,
+    },
+
+    currentFcmToken: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
+    // =========================
+    // RESET PASSWORD
+    // =========================
+    resetOtp: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
+    resetOtpExpiry: {
+      type: Number,
+      default: null,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 // =========================
-// ✅ INDEX (fast search)
+// COMPOUND INDEX
+// ek unit me sirf ek primary member
 // =========================
-memberSchema.index({ buildingId: 1, flatOrShopNo: 1 });
+memberSchema.index(
+  { buildingCode: 1, unitNo: 1, role: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      role: "primary",
+      isVerified: true,
+    },
+  }
+);
 
-const memberModel = mongoose.model("Member", memberSchema);
-
-export default memberModel;
+export default mongoose.model("Member", memberSchema);

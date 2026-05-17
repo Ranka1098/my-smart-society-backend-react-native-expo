@@ -1,17 +1,21 @@
+// =========================
+// Code Name: memberLogin.js
+// =========================
+
 import dotenv from "dotenv";
 dotenv.config();
 
-import adminModel from "../../../model/admin.js";
+import memberModel from "../../../model/member.js";
 import buildingModel from "../../../model/building.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-const adminLogin = async (req, res) => {
+const memberLogin = async (req, res) => {
   try {
     let { buildingCode, email, password, role } = req.body;
 
     // =========================
-    // 1️⃣ Role Validation
+    // 1. ROLE VALIDATION
     // =========================
     if (!role) {
       return res.status(400).json({
@@ -20,15 +24,15 @@ const adminLogin = async (req, res) => {
       });
     }
 
-    if (role !== "admin") {
+    if (role !== "member") {
       return res.status(400).json({
         success: false,
-        message: "Only admin login is allowed",
+        message: "Only member login is allowed",
       });
     }
 
     // =========================
-    // 2️⃣ Required Fields
+    // 2. REQUIRED FIELDS
     // =========================
     if (!buildingCode || !email || !password) {
       return res.status(400).json({
@@ -38,10 +42,10 @@ const adminLogin = async (req, res) => {
     }
 
     buildingCode = buildingCode.trim();
-    email = email.trim().toLowerCase();
+    email        = email.trim().toLowerCase();
 
     // =========================
-    // 3️⃣ Check Building Exists
+    // 3. BUILDING CHECK
     // =========================
     const building = await buildingModel.findOne({ buildingCode });
 
@@ -60,18 +64,20 @@ const adminLogin = async (req, res) => {
     }
 
     // =========================
-    // 4️⃣ Check Admin Exists in That Building
+    // 4. MEMBER EXISTS CHECK
     // =========================
-    const admin = await adminModel.findOne({ email, buildingCode });
+    const member = await memberModel
+      .findOne({ email, buildingCode })
+      .select("+password");
 
-    if (!admin) {
-      // Check email exists but in different building
-      const adminWithEmail = await adminModel.findOne({ email });
+    if (!member) {
+      // email hai but doosri building me
+      const memberWithEmail = await memberModel.findOne({ email });
 
-      if (adminWithEmail) {
+      if (memberWithEmail) {
         return res.status(401).json({
           success: false,
-          message: "This admin does not belong to this building",
+          message: "This member does not belong to this building",
         });
       }
 
@@ -82,9 +88,9 @@ const adminLogin = async (req, res) => {
     }
 
     // =========================
-    // 5️⃣ Check Verification
+    // 5. OTP VERIFICATION CHECK
     // =========================
-    if (!admin.isVerified) {
+    if (!member.isVerified) {
       return res.status(403).json({
         success: false,
         message: "Please verify your email first",
@@ -92,9 +98,26 @@ const adminLogin = async (req, res) => {
     }
 
     // =========================
-    // 6️⃣ Password Check
+    // 6. APPROVAL STATUS CHECK
     // =========================
-    const isMatch = await bcrypt.compare(password, admin.password);
+    if (member.approvalStatus === "Pending") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is pending admin approval",
+      });
+    }
+
+    if (member.approvalStatus === "Rejected") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been rejected. Please contact admin",
+      });
+    }
+
+    // =========================
+    // 7. PASSWORD CHECK
+    // =========================
+    const isMatch = await bcrypt.compare(password, member.password);
 
     if (!isMatch) {
       return res.status(401).json({
@@ -104,14 +127,13 @@ const adminLogin = async (req, res) => {
     }
 
     // =========================
-    // 7️⃣ Generate Token
+    // 8. GENERATE TOKEN
     // =========================
     const token = jwt.sign(
       {
-        id: admin._id,
-        role: "admin",
-        buildingId: building._id,
-        buildingCode,
+        id:           member._id,
+        role:         "member",
+        buildingCode: member.buildingCode,
       },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
@@ -121,18 +143,23 @@ const adminLogin = async (req, res) => {
       success: true,
       message: "Login successful",
       token,
-      admin: {
-        _id: admin._id,
-        adminName: admin.adminName,
-        email: admin.email,
-        buildingCode: admin.buildingCode,
-        buildingId: building._id,
-        buildingName: building.buildingName, // ← add karo
+      member: {
+        _id:            member._id,
+        fullName:       member.fullName,
+        email:          member.email,
+        primaryPhone:   member.primaryPhone,
+        memberType:     member.memberType,
+        memberStatus:   member.memberStatus,
+        buildingCode:   member.buildingCode,
+        buildingName:   member.buildingName,
+        unitNo:         member.unitNo,
+        role:           member.role,
+        approvalStatus: member.approvalStatus,
       },
     });
-  } catch (error) {
-    console.log("Admin Login Error:", error);
 
+  } catch (error) {
+    console.log("Member Login Error:", error);
     return res.status(500).json({
       success: false,
       message: "Server error",
@@ -140,4 +167,4 @@ const adminLogin = async (req, res) => {
   }
 };
 
-export default adminLogin;
+export default memberLogin;
