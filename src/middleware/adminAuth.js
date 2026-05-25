@@ -1,9 +1,45 @@
 import jwt from "jsonwebtoken";
-import adminModel from "../model/admin.js";
 
-const adminAuth = async (req, res, next) => {
+// ======================================================
+// ADMIN AUTH MIDDLEWARE
+// ======================================================
+const adminAuthOptimized = (
+  req,
+  res,
+  next
+) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
+    // ======================================================
+    // GET AUTH HEADER
+    // ======================================================
+    const authHeader =
+      req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Authorization header missing",
+      });
+    }
+
+    // ======================================================
+    // VALIDATE BEARER TOKEN FORMAT
+    // ======================================================
+    if (
+      !authHeader.startsWith("Bearer ")
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token format",
+      });
+    }
+
+    // ======================================================
+    // EXTRACT TOKEN
+    // ======================================================
+    const token =
+      authHeader.split(" ")[1];
 
     if (!token) {
       return res.status(401).json({
@@ -12,39 +48,93 @@ const adminAuth = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // ======================================================
+    // VERIFY TOKEN
+    // ======================================================
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
 
-    if (!decoded || decoded.role !== "admin") {
+    // ======================================================
+    // ROLE VALIDATION
+    // ======================================================
+    if (decoded.role !== "admin") {
       return res.status(403).json({
         success: false,
         message: "Unauthorized access",
       });
     }
 
-    // ✅ buildingCode token se aayega
-    const admin = await adminModel
-      .findOne({ _id: decoded.id, buildingCode: decoded.buildingCode })
-      .select("-password");
-
-    if (!admin) {
-      return res.status(404).json({
+    // ======================================================
+    // REQUIRED PAYLOAD VALIDATION
+    // ======================================================
+    if (
+      !decoded.id ||
+      !decoded.buildingCode
+    ) {
+      return res.status(401).json({
         success: false,
-        message: "Admin not found",
+        message:
+          "Invalid token payload",
       });
     }
 
-    req.admin = admin;
-    req.buildingCode = decoded.buildingCode;
+    // ======================================================
+    // ATTACH ADMIN DATA TO REQUEST
+    // ======================================================
+    req.admin = {
+      id: decoded.id,
+      buildingCode:
+        decoded.buildingCode,
+      role: decoded.role,
+    };
+
+    // backward compatibility
+    req.adminId = decoded.id;
+    req.buildingCode =
+      decoded.buildingCode;
 
     next();
   } catch (error) {
-    console.log("Admin Auth Error:", error);
+    console.error(
+      "Admin Auth Error:",
+      error.message
+    );
 
+    // ======================================================
+    // TOKEN EXPIRED
+    // ======================================================
+    if (
+      error.name === "TokenExpiredError"
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Token expired",
+      });
+    }
+
+    // ======================================================
+    // INVALID TOKEN
+    // ======================================================
+    if (
+      error.name === "JsonWebTokenError"
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token",
+      });
+    }
+
+    // ======================================================
+    // DEFAULT ERROR
+    // ======================================================
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired token",
+      message:
+        "Authentication failed",
     });
   }
 };
 
-export default adminAuth;
+export default adminAuthOptimized;

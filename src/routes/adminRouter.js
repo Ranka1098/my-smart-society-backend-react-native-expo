@@ -9,6 +9,9 @@ import getAdminProfile from "../controller/admin/registration/getAdminProfile.js
 import getPendingMembers from "../controller/admin/memberRequest/getPendingMembers.js";
 import approveMember from "../controller/admin/memberRequest/approveMember.js";
 import rejectMember from "../controller/admin/memberRequest/rejectMember.js";
+import getAllMembers from "../controller/admin/memberInfo/getAllMembers.js";
+import getMemberDetail from "../controller/admin/memberInfo/getMemberDetail.js";
+import getMemberFullDetails from "../controller/admin/memberInfo/getMemberDetail.js";
 const adminRouter = express.Router();
 
 //registration api
@@ -24,6 +27,9 @@ adminRouter.patch("/rejectMember/:memberId", adminAuth, rejectMember);
 //profile api
 adminRouter.get("/getAdminProfile", adminAuth, getAdminProfile);
 
+//member detail
+adminRouter.get("/getAllMembers", adminAuth, getAllMembers);
+adminRouter.get("/getMemberFullDetails/:id", adminAuth, getMemberFullDetails);
 //login api
 adminRouter.post("/adminLogin", adminLogin);
 

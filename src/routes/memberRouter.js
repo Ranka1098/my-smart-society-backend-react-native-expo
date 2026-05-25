@@ -12,6 +12,8 @@ const memberRouter = express.Router();
 memberRouter.post("/memberRegister", memberRegister);
 memberRouter.post("/verifyMemberOtp", verifyMemberOtp);
 memberRouter.post("/resendMemberOtp", resendMemberOtp);
+
+//member detail
 memberRouter.get("/getMemberProfile", memberAuth, getMemberProfile);
 
 //login
