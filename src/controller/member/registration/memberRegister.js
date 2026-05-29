@@ -223,7 +223,7 @@ export const memberRegister = async (req, res) => {
         field: "unitNo",
         message: `This ${
           memberType === "Flat" ? "flat" : "shop"
-        } is already registered`,
+        } no ${unitNo} is already registered`,
       });
     }
 
@@ -492,7 +492,7 @@ export const memberRegister = async (req, res) => {
       const field = Object.keys(error.keyPattern)[0];
 
       const messages = {
-        unitNo: "This flat/shop is already registered",
+        unitNo: "This flat/shop  is already registered",
         email: "This email is already registered",
         primaryPhone: "This phone number is already registered",
       };

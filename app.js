@@ -9,6 +9,8 @@ import adminRouter from "./src/routes/adminRouter.js";
 import authRouter from "./src/routes/authRoutes.js";
 import memberRouter from "./src/routes/memberRouter.js";
 import vendorRouter from "./src/routes/vendorRouter.js";
+import expenseRouter from "./src/routes/expenseRouter.js";
+import maintenanceRouter from "./src/routes/maintenanceRouter.js";
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 connectDB();
@@ -40,6 +42,9 @@ app.use("/", adminRouter);
 app.use("/", authRouter);
 app.use("/", memberRouter);
 app.use("/", vendorRouter);
+app.use("/", expenseRouter);
+app.use("/", maintenanceRouter);
+
 const PORT = process.env.PORT || 1098;
 
 app.listen(PORT, "0.0.0.0", () => {
