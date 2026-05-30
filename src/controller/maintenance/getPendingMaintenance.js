@@ -64,11 +64,6 @@ const getPendingMaintenance = async (req, res) => {
     const { no, month, memberType } = req.query;
     const buildingCode = String(req.buildingCode || "").trim();
 
-    console.log("buildingCode =>", buildingCode);
-    console.log("memberType =>", memberType);
-    console.log("no =>", no);
-    console.log("month =>", month);
-
     // Validation
     if (!buildingCode || !no || !month || !memberType) {
       return res.status(400).json({
@@ -100,7 +95,6 @@ const getPendingMaintenance = async (req, res) => {
       role: "primary",
     });
 
-    console.log("member =>", member);
     if (!member) {
       return res.status(404).json({
         success: false,

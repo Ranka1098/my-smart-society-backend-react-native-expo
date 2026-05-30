@@ -100,13 +100,14 @@ const addMemberMaintenancePayment = async (req, res) => {
     let member;
 
     if (memberType === "Flat") {
-      member = await memberModel;
-      findOne({
-        buildingCode,
-        memberType,
-        unitNo: cleanNo,
-        role: "primary",
-      }).session(session);
+      member = await memberModel
+        .findOne({
+          buildingCode,
+          memberType: "Flat",
+          unitNo: cleanNo,
+          role: "primary",
+        })
+        .session(session);
     } else {
       member = await memberModel
         .findOne({
@@ -223,14 +224,15 @@ const addMemberMaintenancePayment = async (req, res) => {
       paymentId: maintenance._id,
     });
   } catch (error) {
+    console.log("ERROR =>", error);
+    console.log("STACK =>", error.stack);
+
     await session.abortTransaction();
     session.endSession();
 
-    console.error("Add Maintenance Payment Error:", error);
-
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.message, // temporarily
     });
   }
 };
