@@ -1,166 +1,42 @@
-import maintenanceModel from "../../model/maintenance.js";
-import maintenanceMonthModel from "../../model/maintenanceMonthSchema.js";
 import memberModel from "../../model/member.js";
+import maintenanceModel from "../../model/maintenance.js";
 
-/* ===============================
-   Normalize Month
-   Input:  "2026-05" | "MAY-2026" | Date
-   Output: "MAY-2026"
-================================ */
-const MONTH_NAMES = [
-  "JAN",
-  "FEB",
-  "MAR",
-  "APR",
-  "MAY",
-  "JUN",
-  "JUL",
-  "AUG",
-  "SEP",
-  "OCT",
-  "NOV",
-  "DEC",
-];
-
-const normalizeMonth = (value) => {
-  if (!value) return null;
-  const input = String(value).trim();
-
-  if (/^[A-Za-z]{3}-\d{4}$/.test(input)) return input.toUpperCase();
-
-  if (/^\d{4}-\d{1,2}$/.test(input)) {
-    const [year, month] = input.split("-");
-    const idx = parseInt(month, 10) - 1;
-    if (idx < 0 || idx > 11) return null;
-    return `${MONTH_NAMES[idx]}-${year}`;
-  }
-
-  const date = new Date(input);
-  if (!isNaN(date))
-    return `${MONTH_NAMES[date.getMonth()]}-${date.getFullYear()}`;
-
-  return null;
-};
-
-/* ===============================
-   Get Member Display Name
-   Schema fields: ownerName, renterName, memberStatus
-================================ */
-const getMemberName = (member) => {
-  if (!member) return "";
-  if (member.memberStatus === "Tenant")
-    return member.renterName || member.ownerName || "";
-  return member.ownerName || "";
-};
-
-/* ===============================
-   GET /maintenance/getPendingMaintenance
-   Query: { no, month, memberType }
-================================ */
 const getPendingMaintenance = async (req, res) => {
-  res.set("Cache-Control", "no-store");
-
   try {
-    const { no, month, memberType } = req.query;
-    const buildingCode = String(req.buildingCode || "").trim();
+    const { no, memberType } = req.query;
+    const buildingCode = req.admin.buildingCode;
 
-    // Validation
-    if (!buildingCode || !no || !month || !memberType) {
-      return res.status(400).json({
-        success: false,
-        message: "buildingCode, no, month and memberType are required",
-      });
-    }
+    if (!no || !memberType)
+      return res.status(400).json({ message: "no and memberType required" });
 
-    if (!["Flat", "Shop"].includes(memberType)) {
-      return res.status(400).json({
-        success: false,
-        message: "memberType must be Flat or Shop",
-      });
-    }
-
-    const normalizedMonth = normalizeMonth(month);
-    if (!normalizedMonth) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid month format. Use YYYY-MM or MMM-YYYY",
-      });
-    }
-
-    // Find primary member by unitNo
     const member = await memberModel.findOne({
       buildingCode,
+      unitNo: no.trim(),
       memberType,
-      unitNo: String(no).trim(),
       role: "primary",
     });
 
-    if (!member) {
-      return res.status(404).json({
-        success: false,
-        message: `${memberType} ${no} not found`,
-      });
-    }
+    if (!member) return res.status(404).json({ message: "Member not found" });
 
-    const memberName = getMemberName(member);
+    const pendingBills = await maintenanceModel
+      .find({ memberId: member._id, buildingCode, status: "Pending" })
+      .sort({ month: 1 })
+      .select("_id month amount");
 
-    // Parallel fetch — month config + maintenance record
-    const [monthConfig, maintenance] = await Promise.all([
-      maintenanceMonthModel.findOne({ buildingCode, month: normalizedMonth }),
-      maintenanceModel.findOne({
-        buildingCode,
-        memberId: member._id,
-        month: normalizedMonth,
-      }),
-    ]);
+    const memberName =
+      member.memberStatus === "Tenant"
+        ? member.renterName || member.ownerName || "—"
+        : member.ownerName || "—";
 
-    // Neither config nor record exists
-    if (!monthConfig && !maintenance) {
-      return res.status(200).json({
-        success: true,
-        status: "Missing",
-        amount: 0,
-        memberName,
-        message: "Maintenance not generated for this month",
-      });
-    }
-
-    // Config exists but no record for this member yet — treat as Pending
-    if (monthConfig && !maintenance) {
-      const amount =
-        memberType === "Flat" ? monthConfig.perFlat : monthConfig.perShop;
-      return res.status(200).json({
-        success: true,
-        status: "Pending",
-        amount,
-        memberName,
-        message: "Maintenance pending",
-      });
-    }
-
-    // Record exists — check status
-    if (maintenance.status === "Paid") {
-      return res.status(200).json({
-        success: true,
-        status: "Paid",
-        amount: maintenance.amount,
-        memberName,
-        message: `Maintenance of ₹${maintenance.amount} already paid`,
-      });
-    }
-
-    return res.status(200).json({
+    return res.json({
       success: true,
-      status: "Pending",
-      amount: maintenance.amount,
       memberName,
-      message: "Maintenance pending",
+      pendingBills,
+      totalPending: pendingBills.length,
     });
   } catch (err) {
-    console.error("getPendingMaintenance Error:", err);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error" });
+    console.error("getPendingMaintenance:", err.message);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 

@@ -5,6 +5,7 @@ import getMaintenanceByMonth from "../controller/maintenance/getMaintenanceByMon
 import getAllMemberMaintenancePaymentDetail from "../controller/maintenance/getAllMemberMaintenancePaymentDetail.js";
 import addMemberMaintenancePayment from "../controller/maintenance/addMemberMaintenancePayment.js";
 import getPendingMaintenance from "../controller/maintenance/getPendingMaintenance.js";
+import downloadMaintenaceBill from "../controller/maintenance/downloadMaintenaceBill.js";
 
 const maintenanceRouter = express.Router();
 
@@ -33,5 +34,12 @@ maintenanceRouter.get(
   "/getPendingMaintenance",
   adminAuth,
   getPendingMaintenance
+);
+
+// POST for bill download (body me paymentIds array)
+maintenanceRouter.post(
+  "/downloadMaintenaceBill",
+  adminAuth,
+  downloadMaintenaceBill
 );
 export default maintenanceRouter;
