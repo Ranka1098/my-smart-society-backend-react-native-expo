@@ -11,6 +11,8 @@ import memberRouter from "./src/routes/memberRouter.js";
 import vendorRouter from "./src/routes/vendorRouter.js";
 import expenseRouter from "./src/routes/expenseRouter.js";
 import maintenanceRouter from "./src/routes/maintenanceRouter.js";
+import meetingRouter from "./src/routes/meetingRouter.js";
+import noticeRouter from "./src/routes/noticeRouter.js";
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 connectDB();
@@ -44,6 +46,8 @@ app.use("/", memberRouter);
 app.use("/", vendorRouter);
 app.use("/", expenseRouter);
 app.use("/", maintenanceRouter);
+app.use("/", meetingRouter);
+app.use("/", noticeRouter);
 
 const PORT = process.env.PORT || 1098;
 
