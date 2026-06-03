@@ -23,8 +23,13 @@ maintenanceRouter.post(
   getMaintenanceByMonth
 );
 maintenanceRouter.get(
-  "/getAllMemberMaintenancePaymentDetail",
+  "/admin/getAllMemberMaintenancePaymentDetail",
   adminAuth,
+  getAllMemberMaintenancePaymentDetail
+);
+maintenanceRouter.get(
+  "/member/getAllMemberMaintenancePaymentDetail",
+  memberAuth,
   getAllMemberMaintenancePaymentDetail
 );
 maintenanceRouter.post(

@@ -63,7 +63,7 @@ const getMemberName = (member) => {
 
 const getAllMemberMaintenancePaymentDetail = async (req, res) => {
   try {
-    const { buildingCode } = req;
+    const buildingCode = req.buildingCode; // ✅
     let { month } = req.query;
 
     // ✅ Validation
