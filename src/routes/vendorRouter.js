@@ -9,6 +9,7 @@ import getAllVendorExpenses from "../controller/vendor/getAllVendorExpenses.js";
 import VendorExpense from "../model/VendorExpense.js";
 import { deleteVendor } from "../controller/vendor/deleteVendor.js";
 import deleteVendorExpense from "../controller/vendor/deleteVendorExpense.js";
+import memberAuth from "../middleware/memberAuth.js";
 const vendorRouter = express.Router();
 
 // ======================================================
@@ -23,7 +24,12 @@ vendorRouter.get("/getAllVendors", adminAuth, getAllVendors);
 // CREATE VENDOR EXPENSE
 vendorRouter.post("/createVendorExpense", adminAuth, createVendorExpense);
 //get all vendor expense
-vendorRouter.get("/getAllVendorExpense", adminAuth, getAllVendorExpenses);
+vendorRouter.get("/admin/getAllVendorExpense", adminAuth, getAllVendorExpenses);
+vendorRouter.get(
+  "/member/getAllVendorExpense",
+  memberAuth,
+  getAllVendorExpenses
+);
 
 //delete vendor
 vendorRouter.post("/deleteVendor", adminAuth, deleteVendor);
