@@ -4,6 +4,7 @@ import adminAuth from "../middleware/adminAuth.js";
 import createdStaffMember from "../controller/staff/createdStaffMember.js";
 import getStaffMember from "../controller/staff/getStaffMember.js";
 import deleteStaffMember from "../controller/staff/deleteStaffMember.js";
+import memberAuth from "../middleware/memberAuth.js";
 
 const staffRouter = express.Router();
 
@@ -17,7 +18,8 @@ staffRouter.post(
   createdStaffMember
 );
 
-staffRouter.get("/getStaff", adminAuth, getStaffMember);
+staffRouter.get("/admin/getStaff", adminAuth, getStaffMember);
+staffRouter.get("/member/getStaff", memberAuth, getStaffMember);
 staffRouter.delete("/deleteStaff/:id", adminAuth, deleteStaffMember);
 
 export default staffRouter;

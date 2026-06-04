@@ -14,6 +14,7 @@ import maintenanceRouter from "./src/routes/maintenanceRouter.js";
 import meetingRouter from "./src/routes/meetingRouter.js";
 import noticeRouter from "./src/routes/noticeRouter.js";
 import staffRouter from "./src/routes/staffRouter.js";
+import complaintRouter from "./src/routes/complaintRouter.js";
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 connectDB();
@@ -50,6 +51,7 @@ app.use("/", maintenanceRouter);
 app.use("/", meetingRouter);
 app.use("/", noticeRouter);
 app.use("/",staffRouter)
+app.use("/",complaintRouter)
 
 const PORT = process.env.PORT || 1098;
 
