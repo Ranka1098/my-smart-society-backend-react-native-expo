@@ -51,6 +51,10 @@ const vendorExpenseSchema = new mongoose.Schema(
       maxlength: [500, "Description cannot exceed 500 characters"],
       default: null,
     },
+    photoUrl: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

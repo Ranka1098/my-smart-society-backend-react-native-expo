@@ -10,6 +10,7 @@ import VendorExpense from "../model/VendorExpense.js";
 import { deleteVendor } from "../controller/vendor/deleteVendor.js";
 import deleteVendorExpense from "../controller/vendor/deleteVendorExpense.js";
 import memberAuth from "../middleware/memberAuth.js";
+import upload from "../cloudinary/multerConfig.js";
 const vendorRouter = express.Router();
 
 // ======================================================
@@ -22,7 +23,12 @@ vendorRouter.post("/createVendor", adminAuth, createVendor);
 vendorRouter.get("/getAllVendors", adminAuth, getAllVendors);
 
 // CREATE VENDOR EXPENSE
-vendorRouter.post("/createVendorExpense", adminAuth, createVendorExpense);
+vendorRouter.post(
+  "/createVendorExpense",
+  upload.single("photo"),
+  adminAuth,
+  createVendorExpense
+);
 //get all vendor expense
 vendorRouter.get("/admin/getAllVendorExpense", adminAuth, getAllVendorExpenses);
 vendorRouter.get(
