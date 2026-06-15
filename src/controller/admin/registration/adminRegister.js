@@ -20,7 +20,7 @@ const adminRegister = async (req, res) => {
       adminName,
       email,
       phone,
-      bname,
+      buildingName,
       address,
       pincode,
       password,
@@ -34,7 +34,7 @@ const adminRegister = async (req, res) => {
     email = email?.trim().toLowerCase();
     adminName = adminName?.trim();
     phone = phone?.trim();
-    bname = bname?.trim();
+    buildingName = buildingName?.trim();
     address = address?.trim();
     pincode = pincode?.trim();
 
@@ -48,7 +48,7 @@ const adminRegister = async (req, res) => {
       !adminName ||
       !email ||
       !phone ||
-      !bname ||
+      !buildingName ||
       !address ||
       !pincode ||
       !password
@@ -113,7 +113,7 @@ const adminRegister = async (req, res) => {
       existingAdmin.adminName = adminName;
       existingAdmin.email = email;
       existingAdmin.phone = phone;
-      existingAdmin.bname = bname;
+      existingAdmin.buildingName = buildingName;
       existingAdmin.address = address;
       existingAdmin.pincode = pincode;
       existingAdmin.password = hashedPassword;
@@ -143,7 +143,7 @@ const adminRegister = async (req, res) => {
       adminName,
       email,
       phone,
-      bname,
+      buildingName,
       address,
       pincode,
       password: hashedPassword,

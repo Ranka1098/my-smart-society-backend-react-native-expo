@@ -6,6 +6,7 @@ import memberLogin from "../controller/member/login-logout/memberLogin.js";
 import memberAuth from "../middleware/memberAuth.js";
 import getMemberProfile from "../controller/member/registration/getMemberProfile.js";
 import memberLogout from "../controller/member/login-logout/memberLogout.js";
+import getDashboardStats from "../controller/admin/dashbaordStat/getDashboardStats.js";
 const memberRouter = express.Router();
 
 //registration
@@ -19,5 +20,7 @@ memberRouter.get("/getMemberProfile", memberAuth, getMemberProfile);
 //login
 memberRouter.post("/memberLogin", memberLogin);
 memberRouter.post("/memberLogout", memberLogout);
+
+memberRouter.get("/member/getDashboardStats", memberAuth, getDashboardStats);
 
 export default memberRouter;

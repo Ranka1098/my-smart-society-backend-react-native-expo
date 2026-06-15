@@ -26,7 +26,7 @@ const adminSchema = new mongoose.Schema(
       unique: true,
     },
 
-    bname: {
+    buildingName: {
       type: String,
       required: true,
       trim: true,
@@ -94,6 +94,10 @@ const adminSchema = new mongoose.Schema(
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    fcmToken: {
+      type: String,
+      default: null,
     },
   },
   { timestamps: true }

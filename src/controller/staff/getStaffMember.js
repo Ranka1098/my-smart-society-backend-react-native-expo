@@ -1,7 +1,6 @@
 import StaffModel from "../../model/staff.js";
 
 const getStaffMember = async (req, res) => {
-  console.log("🚀 API HIT: getStaffMember");
 
   try {
     const { buildingCode } = req;
@@ -16,11 +15,10 @@ const getStaffMember = async (req, res) => {
     // ✅ ONLY FILTER BY BUILDING
     const filter = { buildingCode };
 
-    console.log("🔍 Filter:", filter);
+  Filter
 
     const staff = await StaffModel.find(filter).sort({ createdAt: -1 }).lean();
 
-    console.log("📦 Staff Count:", staff.length);
 
     return res.status(200).json({
       success: true,

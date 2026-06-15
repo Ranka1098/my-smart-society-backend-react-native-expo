@@ -68,10 +68,11 @@ const verifyMemberOtp = async (req, res) => {
     // =========================
     const existingUnit = await memberModel.findOne({
       buildingCode: member.buildingCode,
-      unitNo:       member.unitNo,
-      role:         "primary",
-      isVerified:   true,
-      _id:          { $ne: member._id },
+      unitNo: member.unitNo,
+      memberType: member.memberType, // add this
+      role: "primary",
+      isVerified: true,
+      _id: { $ne: member._id },
     });
 
     if (existingUnit) {
@@ -84,10 +85,10 @@ const verifyMemberOtp = async (req, res) => {
     // =========================
     // MEMBER UPDATE
     // =========================
-    member.isVerified     = true;
+    member.isVerified = true;
     member.approvalStatus = "Pending";
-    member.otp            = null;
-    member.otpExpires     = null;
+    member.otp = null;
+    member.otpExpires = null;
 
     await member.save();
 
@@ -95,13 +96,12 @@ const verifyMemberOtp = async (req, res) => {
       success: true,
       message: "OTP verified successfully. Waiting for admin approval.",
     });
-
   } catch (error) {
     console.log("Verify Member OTP Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
-      error:   error.message,
+      error: error.message,
     });
   }
 };

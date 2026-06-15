@@ -199,14 +199,8 @@ const memberSchema = new mongoose.Schema(
 // ek unit me sirf ek primary member
 // =========================
 memberSchema.index(
-  { buildingCode: 1, unitNo: 1, role: 1 },
-  {
-    unique: true,
-    partialFilterExpression: {
-      role: "primary",
-      isVerified: true,
-    },
-  }
+  { buildingCode: 1, unitNo: 1, memberType: 1, role: 1 },
+  { unique: true }
 );
 
 export default mongoose.model("Member", memberSchema);

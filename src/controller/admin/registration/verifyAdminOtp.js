@@ -88,7 +88,10 @@ const verifyAdminOtp = async (req, res) => {
     // =========================
     // 🔥 GENERATE BUILDING CODE
     // =========================
-    const buildingCode = await generateBuildingCode(admin.bname, admin.pincode);
+    const buildingCode = await generateBuildingCode(
+      admin.buildingName,
+      admin.pincode
+    );
 
     // =========================
     // 🏢 CREATE BUILDING
@@ -97,7 +100,7 @@ const verifyAdminOtp = async (req, res) => {
       [
         {
           buildingCode,
-          buildingName: admin.bname,
+          buildingName: admin.buildingName,
           chairmanName: admin.adminName,
           chairmanPhone: admin.phone,
           admin: admin._id,
