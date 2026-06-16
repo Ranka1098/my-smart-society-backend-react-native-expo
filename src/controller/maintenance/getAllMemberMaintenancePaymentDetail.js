@@ -127,7 +127,7 @@ const getAllMemberMaintenancePaymentDetail = async (req, res) => {
         amount: p.amount,
 
         // 🔥 OPTIONAL (better UX)
-        status: isDeleted ? "Deleted" : p.status,
+        status: p.status,
 
         paidDate: p.paidDate,
         paymentMode: p.paymentMode,

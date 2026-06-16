@@ -10,7 +10,7 @@ const getMemberName = (member) => {
   if (!member) return "—";
 
   // Agar tenant hai
-  if (member.memberStatus === "Tenant" && member.renterName) {
+  if (member.memberStatus === "Rent" && member.renterName) {
     return member.renterName;
   }
 
@@ -147,7 +147,7 @@ const createMaintenance = async (req, res) => {
         No: member.unitNo,
 
         phone:
-          member.memberStatus === "Tenant"
+          member.memberStatus === "Rent"
             ? member.renterPhone
             : member.ownerPhone,
       });

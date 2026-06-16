@@ -18,6 +18,7 @@ const maintenanceSchema = new mongoose.Schema(
       enum: ["Cash", "UPI", "Cheque"],
       default: null,
     },
+    memberDeleted: { type: Boolean, default: false },
     paidDate: { type: Date, default: null },
     receiptNo: { type: Number, default: null },
     bulkPaymentRef: { type: String, default: null },

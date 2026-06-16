@@ -13,7 +13,7 @@ const memberSchema = new mongoose.Schema(
 
     memberStatus: {
       type: String,
-      enum: ["Owner", "Tenant"],
+      enum: ["Owner", "Rent"],
       required: true,
     },
 

@@ -63,7 +63,7 @@ export const memberRegister = async (req, res) => {
     // STEP 3 — VALID ENUMS
     // ======================================================
     const validMemberTypes = ["Flat", "Shop"];
-    const validMemberStatuses = ["Owner", "Tenant"];
+    const validMemberStatuses = ["Owner", "Rent"];
 
     if (!validMemberTypes.includes(memberType)) {
       return res.status(400).json({
@@ -129,7 +129,7 @@ export const memberRegister = async (req, res) => {
     // ======================================================
     // STEP 6 — TENANT VALIDATION
     // ======================================================
-    if (memberStatus === "Tenant") {
+    if (memberStatus === "Rent") {
       if (!renterName || !renterPhone) {
         return res.status(400).json({
           success: false,

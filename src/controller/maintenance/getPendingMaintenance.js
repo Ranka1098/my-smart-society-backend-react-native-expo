@@ -24,7 +24,7 @@ const getPendingMaintenance = async (req, res) => {
       .select("_id month amount");
 
     const memberName =
-      member.memberStatus === "Tenant"
+      member.memberStatus === "Rent"
         ? member.renterName || member.ownerName || "—"
         : member.ownerName || "—";
 
