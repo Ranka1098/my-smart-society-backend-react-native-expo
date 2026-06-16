@@ -18,80 +18,54 @@ const createdStaffMember = async (req, res) => {
     const { role, workerName, joiningDate, workerPhoneNumber, workerAddress } =
       req.body;
 
-    // VALIDATION
-    if (!buildingCode || !adminId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Building/Admin missing" });
-    }
+    if (!buildingCode || !adminId)
+      return res.status(400).json({ success: false, message: "Building/Admin missing" });
 
-    if (!role || !workerName || !joiningDate || !workerPhoneNumber) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Required fields missing" });
-    }
+    if (!role || !workerName || !joiningDate || !workerPhoneNumber)
+      return res.status(400).json({ success: false, message: "Required fields missing" });
 
-    if (!req.files?.workerIdProof?.[0]) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Worker ID proof required" });
-    }
+    if (!req.files?.workerIdProof?.[0])
+      return res.status(400).json({ success: false, message: "Worker ID proof required" });
 
-    // BUILDING CHECK
     const building = await Building.findOne({ buildingCode });
-    if (!building) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Building not found" });
-    }
+    if (!building)
+      return res.status(404).json({ success: false, message: "Building not found" });
 
-    // UPLOAD (parallel jab dono files hain)
-    let workerPhoto = null;
-    let workerIdProof = null;
+    // DD-MM-YYYY → valid Date
+    const [day, month, year] = joiningDate.split("-");
+    const parsedDate = new Date(`${year}-${month}-${day}`);
+    if (isNaN(parsedDate.getTime()))
+      return res.status(400).json({ success: false, message: "Invalid joiningDate format. Use DD-MM-YYYY" });
 
-    try {
-      const uploads = [];
+    // Parallel Cloudinary uploads
+    const uploadTasks = [];
 
-      if (req.files?.workerPhoto?.[0]) {
-        uploads.push(
-          compressAndUpload(
-            req.files.workerPhoto[0].buffer,
-            "staffPhotos",
-            800
-          ).then((url) => {
-            workerPhoto = url;
-          })
-        );
-      }
+    let workerPhotoUrl = null;
+    let workerIdProofUrl = null;
 
-      uploads.push(
-        compressAndUpload(
-          req.files.workerIdProof[0].buffer,
-          "staffIds",
-          1200
-        ).then((url) => {
-          workerIdProof = url;
-        })
+    if (req.files?.workerPhoto?.[0]) {
+      uploadTasks.push(
+        compressAndUpload(req.files.workerPhoto[0].buffer, "staffPhotos", 800)
+          .then((url) => { workerPhotoUrl = url; })
       );
-
-      await Promise.all(uploads);
-    } catch (err) {
-      console.error("Cloudinary Error:", err);
-      return res
-        .status(500)
-        .json({ success: false, message: "Image upload failed" });
     }
 
-    // CREATE
+    uploadTasks.push(
+      compressAndUpload(req.files.workerIdProof[0].buffer, "staffIds", 1200)
+        .then((url) => { workerIdProofUrl = url; })
+    );
+
+    await Promise.all(uploadTasks);
+
     const newStaff = await StaffModel.create({
       buildingCode,
       role,
       workerName,
-      joiningDate,
+      joiningDate: parsedDate,
       workerPhoneNumber,
       workerAddress: workerAddress || "N/A",
-      workerPhoto,
-      workerIdProof,
+      workerPhoto: workerPhotoUrl,
+      workerIdProof: workerIdProofUrl,
     });
 
     return res.status(201).json({
@@ -101,9 +75,7 @@ const createdStaffMember = async (req, res) => {
     });
   } catch (error) {
     console.error("createStaff Error:", error.message);
-    return res
-      .status(500)
-      .json({ success: false, message: error.message || "Server error" });
+    return res.status(500).json({ success: false, message: error.message || "Server error" });
   }
 };
 
