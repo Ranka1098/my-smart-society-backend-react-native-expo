@@ -9,6 +9,7 @@ import getPendingMaintenance from "../controller/maintenance/getPendingMaintenan
 import downloadMaintenaceBill from "../controller/maintenance/downloadMaintenaceBill.js";
 import singleMemberMaintenanceDetail from "../controller/maintenance/getMemberMaintenanceHistory.js";
 import getMemberMaintenanceHistory from "../controller/maintenance/getMemberMaintenanceHistory.js";
+import deleteMaintenanceByMonth from "../controller/maintenance/deleteMaintenanceByMonth.js";
 
 const maintenanceRouter = express.Router();
 
@@ -49,6 +50,12 @@ maintenanceRouter.post(
   "/downloadMaintenaceBill",
   adminAuth,
   downloadMaintenaceBill
+);
+
+maintenanceRouter.delete(
+  "/maintenanceDeleted/:month",
+  adminAuth,
+  deleteMaintenanceByMonth
 );
 
 maintenanceRouter.get(
