@@ -135,31 +135,6 @@ const downloadMaintenaceBill = async (req, res) => {
         width: 200,
       });
 
-    // ══ META ROW ══════════════════════════════════
-    const metaY = 148;
-    const boxW = (W - MARGIN * 2 - 10) / 2;
-
-    const metaBox = (label, value, x, accent = "#1a1a2e") => {
-      doc.rect(x, metaY, boxW, 52).fill("#f9f9f9").stroke("#e8e8e8");
-      doc
-        .fontSize(8)
-        .font("Helvetica")
-        .fillColor("#888888")
-        .text(label, x + 8, metaY + 8, { width: boxW - 16 });
-      doc
-        .fontSize(11)
-        .font("Helvetica-Bold")
-        .fillColor(accent)
-        .text(value, x + 8, metaY + 22, { width: boxW - 16 });
-    };
-
-    const monthsLabel = isBulk
-      ? `${payments[0].month} – ${payments[payments.length - 1].month}`
-      : payments[0].month;
-
-    metaBox("BILLING MONTH", monthsLabel, MARGIN);
-    metaBox("STATUS", "PAID ✓", MARGIN + boxW + 10, "#16a34a");
-
     // ══ MEMBER DETAILS ═════════════════════════════
     const secY = 220;
     sectionHeader("MEMBER DETAILS", secY);
