@@ -1,28 +1,19 @@
 import expenseModel from "../../model/expense.js";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
 import sharp from "sharp";
+import { notifyAllMembers } from "../../controller/notifcation/notifyMembers.js";
 
 const createExpense = async (req, res) => {
   try {
     const buildingCode = req.buildingCode;
-
-    const {
-      billType,
-      amount,
-      description,
-      paidTo,
-      paymentMethod,
-    } = req.body;
+    const io = req.app.get("io");
+    const buildingId = req.admin.buildingId;
+    const { billType, amount, description, paidTo, paymentMethod } = req.body;
 
     // =========================
     // Validation
     // =========================
-    if (
-      !billType ||
-      amount === undefined ||
-      !paidTo ||
-      !paymentMethod
-    ) {
+    if (!billType || amount === undefined || !paidTo || !paymentMethod) {
       return res.status(400).json({
         success: false,
         message: "All required fields are mandatory",
@@ -82,20 +73,35 @@ const createExpense = async (req, res) => {
       buildingCode,
       billProof: uploadedImage.secure_url,
     });
+    await notifyAllMembers({
+      io,
+      buildingCode,
+      buildingId,
+      type: "EXPENSE",
+      title: "New Expense Added 💸",
+      message: `${billType} - ₹${amount} expense recorded`,
+      referenceId: expense._id,
+      referenceModel: "Expense",
+      data: {
+        expenseId: expense._id.toString(),
+        billType,
+        amount: String(amount),
+      },
+    });
 
     return res.status(201).json({
       success: true,
       message: "Expense created successfully",
       expense,
     });
-} catch (error) {
-  console.log("❌ createExpense Error:", error.message); // <-- error.message add karo
-  console.log("❌ Full Error:", error);                   // <-- full stack bhi
-  return res.status(500).json({
-    success: false,
-    message: error.message || "Server Error", // <-- actual message bhejo
-  });
-}
+  } catch (error) {
+    console.log("❌ createExpense Error:", error.message); // <-- error.message add karo
+    console.log("❌ Full Error:", error); // <-- full stack bhi
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server Error", // <-- actual message bhejo
+    });
+  }
 };
 
-export default createExpense;  
+export default createExpense;
