@@ -10,6 +10,7 @@ import downloadMaintenaceBill from "../controller/maintenance/downloadMaintenace
 import singleMemberMaintenanceDetail from "../controller/maintenance/getMemberMaintenanceHistory.js";
 import getMemberMaintenanceHistory from "../controller/maintenance/getMemberMaintenanceHistory.js";
 import deleteMaintenanceByMonth from "../controller/maintenance/deleteMaintenanceByMonth.js";
+import sendReminder from "../controller/maintenance/sendReminder.js";
 
 const maintenanceRouter = express.Router();
 
@@ -63,4 +64,7 @@ maintenanceRouter.get(
   memberAuth,
   getMemberMaintenanceHistory
 );
+
+maintenanceRouter.post("/sendMaintenanceReminder", adminAuth, sendReminder);
+
 export default maintenanceRouter;
