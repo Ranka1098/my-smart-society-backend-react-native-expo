@@ -15,6 +15,7 @@ import getMemberFullDetails from "../controller/admin/memberInfo/getMemberDetail
 import getDashboardStats from "../controller/admin/dashbaordStat/getDashboardStats.js";
 import member from "../model/member.js";
 import adminSaveFcmToken from "../fcmToken/adminSaveFcmToken.js";
+import adminRemoveFcmToken from "../fcmToken/adminRemoveFcmToken.js";
 const adminRouter = express.Router();
 
 //registration api
@@ -37,11 +38,12 @@ adminRouter.get("/getMemberFullDetails/:id", adminAuth, getMemberFullDetails);
 adminRouter.post("/adminLogin", adminLogin);
 
 //logout api
-adminRouter.post("/adminLogout", adminLogout);
+adminRouter.post("/adminLogout", adminAuth, adminLogout);
 
 //getDashboardStats
 adminRouter.get("/getDashboardStats", adminAuth, getDashboardStats);
 
 adminRouter.post("/adminSaveFcmToken", adminAuth, adminSaveFcmToken);
+adminRouter.post("/adminRemoveFcmToken", adminAuth, adminRemoveFcmToken);
 
 export default adminRouter;

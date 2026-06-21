@@ -9,6 +9,8 @@ import getMemberProfile from "../controller/member/registration/getMemberProfile
 import memberLogout from "../controller/member/login-logout/memberLogout.js";
 import getDashboardStats from "../controller/admin/dashbaordStat/getDashboardStats.js";
 import deleteMember from "../controller/member/deleteMember/deleteMember.js";
+import memberSaveFcmToken from "../fcmToken/memberSaveFcmToken.js";
+import memberRemoveFcmToken from "../fcmToken/memberRemoveFcmToken.js";
 const memberRouter = express.Router();
 
 //registration
@@ -25,5 +27,8 @@ memberRouter.post("/memberLogout", memberLogout);
 
 memberRouter.delete("/deleteMember/:id", adminAuth, deleteMember);
 memberRouter.get("/member/getDashboardStats", memberAuth, getDashboardStats);
+memberRouter.post("/memberSaveFcmToken", memberAuth, memberSaveFcmToken);
+memberRouter.post("/memberSaveFcmToken", memberAuth, memberSaveFcmToken);
+memberRouter.post("/memberRemoveFcmToken", memberAuth, memberRemoveFcmToken);
 
 export default memberRouter;

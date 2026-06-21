@@ -3,6 +3,28 @@ import maintenanceModel from "../../model/maintenance.js";
 import adminModel from "../../model/admin.js";
 import memberModel from "../../model/member.js";
 
+const MONTH_ORDER = [
+  "JAN",
+  "FEB",
+  "MAR",
+  "APR",
+  "MAY",
+  "JUN",
+  "JUL",
+  "AUG",
+  "SEP",
+  "OCT",
+  "NOV",
+  "DEC",
+];
+
+
+const parseMonth = (monthStr) => {
+  const [mon, year] = monthStr.split("-");
+  const idx = MONTH_ORDER.indexOf(mon.toUpperCase());
+  return Number(year) * 12 + (idx === -1 ? 0 : idx);
+};
+
 const downloadMaintenaceBill = async (req, res) => {
   try {
     const { paymentIds } = req.body;
@@ -28,9 +50,11 @@ const downloadMaintenaceBill = async (req, res) => {
     };
 
     // Fetch all payments
-    const payments = await maintenanceModel
-      .find({ _id: { $in: paymentIds }, status: "Paid" })
-      .sort({ month: 1 });
+    const payments = (
+      await maintenanceModel
+        .find({ _id: { $in: paymentIds }, status: "Paid" })
+        .sort({ month: 1 })
+    ).sort((a, b) => parseMonth(a.month) - parseMonth(b.month));
 
     if (!payments.length)
       return res
@@ -54,6 +78,8 @@ const downloadMaintenaceBill = async (req, res) => {
     const isBulk = payments.length > 1;
     const totalAmount = payments.reduce((s, p) => s + Number(p.amount), 0);
 
+
+    
     // Headers
     const safeMemberNo = String(memberNo).replace(/[^\w\-]/g, "_");
     res.setHeader("Content-Type", "application/pdf");
@@ -136,7 +162,7 @@ const downloadMaintenaceBill = async (req, res) => {
       });
 
     // ══ MEMBER DETAILS ═════════════════════════════
-    const secY = 220;
+    const secY = 145;
     sectionHeader("MEMBER DETAILS", secY);
 
     let rowY = secY + 30;

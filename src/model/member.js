@@ -168,11 +168,9 @@ const memberSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-
-    currentFcmToken: {
+    fcmToken: {
       type: String,
       default: null,
-      select: false,
     },
 
     // =========================

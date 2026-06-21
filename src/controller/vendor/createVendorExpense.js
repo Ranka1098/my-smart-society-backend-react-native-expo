@@ -2,9 +2,12 @@ import sharp from "sharp";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
 import VendorExpense from "../../model/VendorExpense.js";
 import vendorModel from "../../model/Vendor.js";
+import { notifyAllMembers } from "../../controller/notifcation/notifyMembers.js";
+
 const createVendorExpense = async (req, res) => {
   try {
     const buildingCode = req.buildingCode;
+    const buildingId = req.admin.buildingId; // ✅ middleware mein hai
     const adminId = req.adminId;
 
     let { vendorId, amount, description } = req.body;
@@ -69,6 +72,24 @@ const createVendorExpense = async (req, res) => {
       photoUrl,
     });
 
+    // ── NOTIFY ALL MEMBERS ──
+    const io = req.app.get("io");
+    await notifyAllMembers({
+      io,
+      buildingCode,
+      buildingId,
+      type: "EXPENSE",
+      title: "New Expense Added 💸",
+      message: `${vendor.companyName} - ₹${amount} expense recorded`,
+      referenceId: expense._id,
+      referenceModel: "VendorExpense",
+      data: {
+        expenseId: expense._id.toString(),
+        vendorName: vendor.companyName,
+        amount: String(amount),
+      },
+    });
+
     return res.status(201).json({
       success: true,
       message: "Vendor expense created successfully",
@@ -99,4 +120,5 @@ const createVendorExpense = async (req, res) => {
       });
   }
 };
+
 export default createVendorExpense;

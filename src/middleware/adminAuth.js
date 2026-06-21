@@ -70,6 +70,7 @@ const adminAuth = (req, res, next) => {
     req.admin = {
       id: decoded.id,
       buildingCode: decoded.buildingCode,
+      buildingId: decoded.buildingId,
       role: decoded.role,
     };
 
