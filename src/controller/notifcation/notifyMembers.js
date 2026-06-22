@@ -44,8 +44,8 @@ async function createAndSend({
       fcmToken: { $ne: null },
     }).select("fcmToken");
     tokens = members.map((m) => m.fcmToken).filter(Boolean);
-     console.log("Member tokens found:", tokens.length); // ← ADD
-  console.log("Socket room:", socketRoom);            // ← ADD
+    console.log("Member tokens found:", tokens.length); // ← ADD
+    console.log("Socket room:", socketRoom); // ← ADD
     io.to(socketRoom).emit("notification", { type, title, message, data });
   } else if (audience === "ADMIN") {
     const admin = await Admin.findOne({

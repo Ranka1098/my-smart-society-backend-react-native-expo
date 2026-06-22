@@ -21,15 +21,16 @@ const notificationSchema = new mongoose.Schema(
         "NEW_BUILDING_REGISTERED",
         "MAINTENANCE_PAID",
         "EXPENSE",
-        "NOTICE",
-        "MEETING",
+        "NOTICE_POSTED",
+        "MEETING_CREATED",
         "COMPLAINT_ADD",
+        "COMPLAINT_RAISED",
         "COMPLAINT_RESOLVED",
         "NEW_MEMBER_REQUEST",
         "NEW_STAFF_MEMBER_ADDED",
         "SUBSCRIPTION_EXPIRED",
         "SUBSCRIPTION_EXPIRING",
-        "VISITOR_ARRIVED"
+        "VISITOR_ARRIVED",
       ],
       required: true,
     },
@@ -64,7 +65,10 @@ const notificationSchema = new mongoose.Schema(
     readBy: [
       {
         userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-        userModel: { type: String, enum: ["ADMIN", "MEMBER", "STAFF", "SUPERADMIN"] },
+        userModel: {
+          type: String,
+          enum: ["ADMIN", "MEMBER", "STAFF", "SUPERADMIN"],
+        },
         readAt: { type: Date, default: Date.now },
       },
     ],

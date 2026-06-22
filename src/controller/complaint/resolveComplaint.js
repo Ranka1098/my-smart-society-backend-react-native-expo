@@ -1,22 +1,23 @@
 import complaintModel from "../../model/complaint.js";
 import memberModel from "../../model/member.js";
+import Building from "../../model/building.js";
+import Notification from "../../model/notification.js";
+import { sendFCM } from "../notifcation/sendFcmNotification.js";
 
 const resolveComplaint = async (req, res) => {
   try {
     const buildingCode = req.buildingCode;
+    const buildingId = req.admin?.buildingId;
     const adminId = req.adminId;
-
+    const io = req.app.get("io");
     const complaintId = req.params.id;
 
     if (!adminId || !buildingCode) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     // ===============================
-    // ✅ FIND COMPLAINT (Only same building)
+    // ✅ FIND COMPLAINT
     // ===============================
     const complaint = await complaintModel.findOne({
       _id: complaintId,
@@ -24,17 +25,15 @@ const resolveComplaint = async (req, res) => {
     });
 
     if (!complaint) {
-      return res.status(404).json({
-        success: false,
-        message: "Complaint not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Complaint not found" });
     }
 
     if (complaint.status === "RESOLVED") {
-      return res.status(400).json({
-        success: false,
-        message: "Already resolved",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Already resolved" });
     }
 
     // ===============================
@@ -46,7 +45,7 @@ const resolveComplaint = async (req, res) => {
     await complaint.save();
 
     // ===============================
-    // ✅ FIND MEMBER (Only same building)
+    // ✅ FIND MEMBER
     // ===============================
     const member = await memberModel.findOne({
       _id: complaint.memberId,
@@ -54,25 +53,50 @@ const resolveComplaint = async (req, res) => {
     });
 
     if (!member) {
-      return res.status(404).json({
-        success: false,
-        message: "Member not found",
+      return res
+        .status(404)
+        .json({ success: false, message: "Member not found" });
+    }
+
+    // ===============================
+    // ✅ NOTIFY THAT MEMBER ONLY
+    // ===============================
+    const title = "Complaint Resolved ✅";
+    const message = `Your ${complaint.category} complaint has been resolved by admin.`;
+    const data = {
+      complaintId: String(complaint._id),
+      category: complaint.category,
+      status: "RESOLVED",
+    };
+
+    await Notification.create({
+      buildingCode,
+      buildingId,
+      type: "COMPLAINT_RESOLVED",
+      audience: "MEMBERS",
+      receiverId: member._id,
+      receiverModel: "MEMBER",
+      title,
+      message,
+      referenceId: complaint._id,
+      referenceModel: "Complaint",
+      data,
+    });
+
+    // Socket → specific member room
+    if (io) {
+      io.to(`member_${member._id}`).emit("notification", {
+        type: "COMPLAINT_RESOLVED",
+        title,
+        message,
+        data,
       });
     }
 
-    const title = "Complaint Resolved";
-    const message = `Your complaint (${complaint.category}) has been resolved`;
-
-    // ===============================
-    // 🔥 NOTIFICATION ENGINE (ONLY THAT MEMBER)
-    // ===============================
-    const receivers = [
-      {
-        receiverId: member._id,
-        receiverModel: "MEMBER",
-        fcmToken: member.currentFcmToken || null,
-      },
-    ];
+    // FCM → specific member only
+    if (member.fcmToken) {
+      await sendFCM([member.fcmToken], title, message, data);
+    }
 
     return res.status(200).json({
       success: true,
@@ -81,11 +105,7 @@ const resolveComplaint = async (req, res) => {
     });
   } catch (error) {
     console.error("Resolve Complaint Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 

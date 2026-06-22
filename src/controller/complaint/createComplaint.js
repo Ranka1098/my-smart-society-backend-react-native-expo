@@ -1,12 +1,13 @@
 import complaintModel from "../../model/complaint.js";
 import memberModel from "../../model/member.js";
-import adminModel from "../../model/admin.js";
 import Building from "../../model/building.js";
+import { notifyMemberToAdmin } from "../notifcation/notifyMembers.js"; // ✅ path apna sahi karo
 
 const createComplaint = async (req, res) => {
   try {
     const { type, description } = req.body;
     const memberId = req.member._id;
+    const io = req.app.get("io");
 
     if (!memberId) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
@@ -74,12 +75,25 @@ const createComplaint = async (req, res) => {
     });
 
     // ===============================
-    // ✅ FETCH ADMINS (same building)
+    // ✅ NOTIFY ADMIN (existing helper — consistent room + correct fcmToken field)
     // ===============================
-    const admins = await adminModel
-      .find({ buildingCode })
-      .select("_id currentFcmToken")
-      .lean();
+    await notifyMemberToAdmin({
+      io,
+      buildingCode,
+      buildingId: building._id,
+      type: "COMPLAINT_RAISED",
+      title: "New Complaint Raised 📢",
+      message: `${memberName} (${unitType} ${unitNo}) raised a complaint: ${type}`,
+      referenceId: complaint._id,
+      referenceModel: "Complaint",
+      data: {
+        complaintId: String(complaint._id),
+        unitType,
+        unitNo: String(unitNo),
+        category: type,
+      },
+      senderId: memberId,
+    });
 
     return res.status(201).json({
       success: true,

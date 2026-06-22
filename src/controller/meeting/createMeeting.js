@@ -4,7 +4,7 @@
 import meetingModel from "../../model/meeting.js";
 import memberModel from "../../model/member.js";
 import Building from "../../model/building.js";
-
+import { notifyAllMembers } from "../notifcation/notifyMembers.js";
 const createMeeting = async (req, res) => {
   try {
     const buildingCode = req.buildingCode;
@@ -71,6 +71,19 @@ const createMeeting = async (req, res) => {
       meetingDate: new Date(),
       attendance,
       buildingCode,
+    });
+    // Notification send after meeting create
+    const io = req.app.get("io");
+    await notifyAllMembers({
+      io,
+      buildingCode,
+      buildingId: building._id,
+      type: "MEETING_CREATED",
+      title: "New Meeting Created 📅",
+      message: `Meeting: ${title}`,
+      referenceId: meeting._id,
+      referenceModel: "Meeting",
+      data: { meetingId: String(meeting._id) },
     });
 
     // ===============================
