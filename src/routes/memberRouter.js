@@ -11,6 +11,8 @@ import getDashboardStats from "../controller/admin/dashbaordStat/getDashboardSta
 import deleteMember from "../controller/member/deleteMember/deleteMember.js";
 import memberSaveFcmToken from "../fcmToken/memberSaveFcmToken.js";
 import memberRemoveFcmToken from "../fcmToken/memberRemoveFcmToken.js";
+import addFamilyMember from "../controller/member/registration/addFamilyMember.js";
+import getFamilyMembers from "../controller/member/registration/getFamilyMembers.js";
 const memberRouter = express.Router();
 
 //registration
@@ -30,5 +32,6 @@ memberRouter.get("/member/getDashboardStats", memberAuth, getDashboardStats);
 memberRouter.post("/memberSaveFcmToken", memberAuth, memberSaveFcmToken);
 memberRouter.post("/memberSaveFcmToken", memberAuth, memberSaveFcmToken);
 memberRouter.post("/memberRemoveFcmToken", memberAuth, memberRemoveFcmToken);
-
+memberRouter.post("/member/addFamilyMember", memberAuth, addFamilyMember);
+memberRouter.get("/member/getFamilyMembers", memberAuth, getFamilyMembers);
 export default memberRouter;

@@ -1,3 +1,7 @@
+// =========================
+// Code Name: StaffModel.js
+// =========================
+
 import mongoose from "mongoose";
 
 const staffSchema = new mongoose.Schema(
@@ -13,9 +17,15 @@ const staffSchema = new mongoose.Schema(
     role: {
       type: String,
       required: [true, "Role is required"],
+      enum: [
+        "security",
+        "cleaner",
+        "plumber",
+        "electrician",
+        "gardener",
+        "other",
+      ],
       trim: true,
-      minlength: [2, "Role must be at least 2 characters"],
-      maxlength: [50, "Role cannot exceed 50 characters"],
     },
 
     workerName: {
@@ -30,9 +40,15 @@ const staffSchema = new mongoose.Schema(
       },
     },
 
-    joiningDate: {
-      type: Date,
-      required: [true, "Joining date is required"],
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      trim: true,
+      lowercase: true,
+      match: [
+        /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+        "Invalid email format",
+      ],
     },
 
     workerPhoneNumber: {
@@ -40,6 +56,12 @@ const staffSchema = new mongoose.Schema(
       required: [true, "Worker phone number is required"],
       trim: true,
       match: [/^[0-9]{10}$/, "Worker phone number must be 10 digits"],
+    },
+
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      minlength: [6, "Password must be at least 6 characters"],
     },
 
     workerAddress: {
@@ -52,26 +74,57 @@ const staffSchema = new mongoose.Schema(
 
     workerPhoto: {
       type: String,
-      required: [true, "Worker photo URL is required"],
-      trim: true,
-      maxlength: [500, "Worker photo URL cannot exceed 500 characters"],
+      default: null,
     },
 
     workerIdProof: {
       type: String,
-      required: [true, "Worker ID proof URL is required"],
-      trim: true,
-      maxlength: [500, "Worker ID proof URL cannot exceed 500 characters"],
+      default: null,
+    },
+
+    joiningDate: {
+      type: Date,
+      default: null,
+    },
+
+    // ── OTP ──────────────────────────────────────────────
+    otp: {
+      type: String,
+      default: null,
+    },
+
+    otpExpiry: {
+      type: Date,
+      default: null,
+    },
+
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    // ── Status ───────────────────────────────────────────
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+
+    rejectionReason: {
+      type: String,
+      default: null,
     },
   },
   {
-    timestamps: true, // createdAt, updatedAt automatically
+    timestamps: true,
   }
 );
 
-// Index for faster queries by buildingCode and role
-staffSchema.index({ buildingCode: 1, role: 1 });
+staffSchema.index({ buildingCode: 1, status: 1 });
+staffSchema.index({ email: 1, buildingCode: 1 }, { unique: true });
 
-const StaffModel = mongoose.model("Staff", staffSchema);
+// StaffModel.js ka last line change karo
+const StaffModel =
+  mongoose.models.Staff || mongoose.model("Staff", staffSchema);
 
 export default StaffModel;

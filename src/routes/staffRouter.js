@@ -1,25 +1,40 @@
+// =========================
+// Code Name: staffRoutes.js
+// =========================
+
 import express from "express";
-import upload from "../cloudinary/multerConfig.js";
+import staffRegister from "../controller/staff/staffRegister.js";
+import verifyStaffOtp from "../controller/staff/verifyStaffOtp.js";
+import resendStaffOtp from "../controller/staff/resendStaffOtp.js";
+import getPendingStaff from "../controller/staff/getPendingStaff.js";
+import getAllStaff from "../controller/staff/getAllStaff.js";
+import approveStaff from "../controller/staff/approveStaff.js";
+import rejectStaff from "../controller/staff/rejectStaff.js";
 import adminAuth from "../middleware/adminAuth.js";
-import createdStaffMember from "../controller/staff/createdStaffMember.js";
-import getStaffMember from "../controller/staff/getStaffMember.js";
-import deleteStaffMember from "../controller/staff/deleteStaffMember.js";
-import memberAuth from "../middleware/memberAuth.js";
 
-const staffRouter = express.Router();
+import multer from "multer";
+import staffLogin from "../controller/staff/staffLogin.js";
+const upload = multer({ storage: multer.memoryStorage() });
 
-staffRouter.post(
-  "/createStaff",
-  adminAuth,
+const StaffRouter = express.Router();
+
+// ── Public ────────────────────────────────────────────────
+StaffRouter.post(
+  "/staffRegister",
   upload.fields([
     { name: "workerPhoto", maxCount: 1 },
     { name: "workerIdProof", maxCount: 1 },
   ]),
-  createdStaffMember
+  staffRegister
 );
+StaffRouter.post("/verifyStaffOtp", verifyStaffOtp);
+StaffRouter.post("/resendStaffOtp", resendStaffOtp);
+StaffRouter.post("/staffLogin", staffLogin);
 
-staffRouter.get("/admin/getStaff", adminAuth, getStaffMember);
-staffRouter.get("/member/getStaff", memberAuth, getStaffMember);
-staffRouter.delete("/deleteStaff/:id", adminAuth, deleteStaffMember);
+// ── Admin Protected ───────────────────────────────────────
+StaffRouter.get("/admin/pendingStaff", adminAuth, getPendingStaff);
+StaffRouter.get("/admin/allStaff", adminAuth, getAllStaff);
+StaffRouter.patch("/admin/approveStaff/:staffId", adminAuth, approveStaff);
+StaffRouter.put("/admin/rejectStaff/:staffId", adminAuth, rejectStaff);
 
-export default staffRouter;
+export default StaffRouter;
