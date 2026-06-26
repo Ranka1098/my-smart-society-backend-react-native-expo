@@ -76,7 +76,7 @@ const staffLogin = async (req, res) => {
         message: "Please verify your email first",
       });
     }
-    
+
     if (staff.role !== "security") {
       return res.status(403).json({
         success: false,
@@ -122,6 +122,7 @@ const staffLogin = async (req, res) => {
         id: staff._id,
         role: staff.role,
         buildingId: building._id,
+        buildingName: building.buildingName,
         buildingCode,
       },
       process.env.JWT_SECRET,
