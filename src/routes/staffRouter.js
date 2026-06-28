@@ -14,6 +14,8 @@ import adminAuth from "../middleware/adminAuth.js";
 
 import multer from "multer";
 import staffLogin from "../controller/staff/staffLogin.js";
+import searchMembersForVisitor from "../controller/staff/searchMembersForVisitor.js";
+import staffAuth from "../middleware/staffAuth.js";
 const upload = multer({ storage: multer.memoryStorage() });
 
 const StaffRouter = express.Router();
@@ -36,5 +38,7 @@ StaffRouter.get("/admin/pendingStaff", adminAuth, getPendingStaff);
 StaffRouter.get("/admin/allStaff", adminAuth, getAllStaff);
 StaffRouter.patch("/admin/approveStaff/:staffId", adminAuth, approveStaff);
 StaffRouter.put("/admin/rejectStaff/:staffId", adminAuth, rejectStaff);
+
+StaffRouter.get("/staff/searchMembers", staffAuth, searchMembersForVisitor);
 
 export default StaffRouter;
