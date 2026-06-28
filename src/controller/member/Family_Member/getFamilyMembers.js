@@ -7,18 +7,17 @@ const getFamilyMembers = async (req, res) => {
     const primaryMember = req.member;
 
     if (primaryMember.role !== "primary")
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Only primary member can view family members",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Only primary member can view family members",
+      });
 
     const familyMembers = await Member.find({
       buildingCode: primaryMember.buildingCode,
       unitNo: primaryMember.unitNo,
       memberType: primaryMember.memberType,
       role: "family",
+      isVerified: true, // ← ADD
     }).select("fullName primaryPhone email relation approvalStatus createdAt");
 
     return res.status(200).json({

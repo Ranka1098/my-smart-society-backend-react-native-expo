@@ -1,10 +1,5 @@
-// =========================
-// Code Name: getMemberFullDetails.js (Member + Maintenance History)
-// =========================
-
 import memberModel from "../../../model/member.js";
 import maintenanceModel from "../../../model/maintenance.js";
-
 const getMemberFullDetails = async (req, res) => {
   try {
     const { id } = req.params;
@@ -15,16 +10,26 @@ const getMemberFullDetails = async (req, res) => {
       maintenanceModel.find({ memberId: id }).sort({ createdAt: -1 }),
     ]);
 
-    if (!member) {
-      return res.status(404).json({
-        success: false,
-        message: "Member not found",
-      });
-    }
+    if (!member)
+      return res
+        .status(404)
+        .json({ success: false, message: "Member not found" });
+
+    // family fetch after member — unitNo chahiye
+    const familyMembers = await memberModel
+      .find({
+        buildingCode,
+        unitNo: member.unitNo,
+        memberType: member.memberType,
+        role: "family",
+        isVerified: true,
+      })
+      .select("fullName relation approvalStatus");
 
     return res.status(200).json({
       success: true,
       member,
+      familyMembers, // ← ADD
       history: history.map((r) => ({
         _id: r._id,
         month: r.month,
@@ -39,11 +44,7 @@ const getMemberFullDetails = async (req, res) => {
     });
   } catch (error) {
     console.error("getMemberFullDetails Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 export default getMemberFullDetails;

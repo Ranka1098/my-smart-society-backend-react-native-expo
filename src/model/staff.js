@@ -86,7 +86,7 @@ const staffSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-
+    fcmToken: { type: String, default: null },
     // ── OTP ──────────────────────────────────────────────
     otp: {
       type: String,

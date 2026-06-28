@@ -1,7 +1,4 @@
-// ─────────────────────────────────────────────────────────────────
-// GET /api/visitor/log?buildingCode=X&date=YYYY-MM-DD&status=Y
-// Admin / guard — fetch visitor log with filters
-// ─────────────────────────────────────────────────────────────────
+import Visitor from "../../model/Visitor.js";
 const getVisitorLog = async (req, res) => {
   try {
     const { buildingCode, date, status, flatNo } = req.query;
@@ -35,3 +32,4 @@ const getVisitorLog = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+export default getVisitorLog;

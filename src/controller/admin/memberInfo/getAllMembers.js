@@ -9,7 +9,12 @@ const getAllMembers = async (req, res) => {
     const buildingCode = req.buildingCode;
 
     const members = await memberModel
-      .find({ buildingCode, approvalStatus: "Approved", isVerified: true })
+      .find({
+        buildingCode,
+        role: "primary",
+        approvalStatus: "Approved",
+        isVerified: true,
+      })
       .sort({ createdAt: -1 });
 
     return res.status(200).json({

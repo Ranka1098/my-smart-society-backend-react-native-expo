@@ -1,11 +1,12 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
+const {
+  Schema,
+  Types: { ObjectId },
+} = mongoose;
 
 const visitorSchema = new mongoose.Schema(
   {
-    // ── BUILDING ──
     buildingCode: { type: String, required: true },
-
-    // ── VISITOR ──
     name: { type: String, required: true, trim: true },
     mobile: { type: String, trim: true },
     purpose: {
@@ -13,21 +14,11 @@ const visitorSchema = new mongoose.Schema(
       enum: ["Guest", "Maid", "Delivery", "Worker", "Cab", "Other"],
       required: true,
     },
-    photoUrl: { type: String }, // Cloudinary URL
-
-    // ── DESTINATION ──
+    photoUrl: { type: String },
     flatNo: { type: String, required: true, trim: true },
     notifiedMembers: [{ type: ObjectId, ref: "Member" }],
     respondedBy: { type: ObjectId, ref: "Member" },
-
-    // ── GUARD ──
-    guardId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Staff",
-      required: true,
-    },
-
-    // ── APPROVAL ──
+    guardId: { type: ObjectId, ref: "Staff", required: true },
     status: {
       type: String,
       enum: ["Pending", "Approved", "Rejected", "ForcedEntry", "Exited"],
@@ -36,19 +27,13 @@ const visitorSchema = new mongoose.Schema(
     approvedAt: { type: Date },
     rejectedAt: { type: Date },
     rejectionReason: { type: String },
-
-    // ── VERIFICATION METHOD ──
     verificationMethod: {
       type: String,
       enum: ["FCM", "ManualCall", "ForcedEntry"],
     },
     forcedEntryReason: { type: String },
-
-    // ── NOTIFICATION TIMER ──
-    notificationSentAt: { type: Date }, // when guard sent notif
-    notificationExpiresAt: { type: Date }, // notificationSentAt + 60s
-
-    // ── ENTRY / EXIT ──
+    notificationSentAt: { type: Date },
+    notificationExpiresAt: { type: Date },
     entryTime: { type: Date, default: Date.now },
     exitTime: { type: Date },
   },
@@ -59,5 +44,5 @@ visitorSchema.index({ buildingCode: 1, entryTime: -1 });
 visitorSchema.index({ buildingCode: 1, flatNo: 1 });
 visitorSchema.index({ buildingCode: 1, status: 1 });
 
-module.exports =
-  mongoose.models.Visitor || mongoose.model("Visitor", visitorSchema);
+export default mongoose.models.Visitor ||
+  mongoose.model("Visitor", visitorSchema);

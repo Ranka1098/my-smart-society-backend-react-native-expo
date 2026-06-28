@@ -1,102 +1,81 @@
-const Visitor = require("../models/VisitorModel");
-const Member = require("../models/Member"); // your Member/User model
-const { sendFCMNotification } = require("../utils/fcm"); // your FCM helper
+import Visitor from "../../model/Visitor.js";
+import Member from "../../model/Member.js";
+import { sendFCM } from "../notifcation/sendFcmNotification.js";
 
-const NOTIFICATION_TTL_SECONDS = 60; // 1 minute
+const NOTIFICATION_TTL = 60;
 
-// ─────────────────────────────────────────────────────────────────
-// POST /api/visitor/create-pending
-// Guard fills form → sends FCM to member → creates Pending record
-// Body: { buildingCode, name, mobile?, purpose, photoUrl?,
-//         flatNo, memberId, guardId }
-// ─────────────────────────────────────────────────────────────────
 const createVisitorPendingRequest = async (req, res) => {
   try {
-    const { buildingCode, name, photoUrl, flatNo, memberId, guardId } =
-      req.body;
+    const { buildingCode, name, mobile, purpose, photoUrl, flatNo } = req.body;
+    const guardId = req.staff._id; // staffAuth middleware se
 
-    // validation
-    if (
-      !buildingCode ||
-      !name ||
-      !photoUrl ||
-      !flatNo ||
-      !memberId ||
-      !guardId
-    ) {
+    if (!buildingCode || !name || !purpose || !flatNo) {
       return res
         .status(400)
         .json({ success: false, message: "Required fields missing" });
     }
 
+    // flat ke members fetch karo
     const members = await Member.find({
       buildingCode,
       flatNo,
       fcmToken: { $exists: true, $ne: null },
-    }).select("name fcmToken");
-    if (!members.length) {
-      return res
-        .status(404)
-        .json({ message: "Flat mein koi member nahi mila" });
-    }
-
-    // sabko ek saath FCM bhejo
-    await Promise.allSettled(
-      members.map((m) =>
-        sendFCMNotification({
-          token: m.fcmToken,
-          title: "Visitor is waiting at Gate",
-          body: `${name} aaya hai. Approve ya Deny karo.`,
-          data: {
-            type: "VISITOR_APPROVAL",
-            visitorId: visitor._id.toString(),
-            flatNo,
-            expiresAt,
-          },
-        })
-      )
-    );
+    }).select("_id fcmToken");
 
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + NOTIFICATION_TTL_SECONDS * 1000);
+    const expiresAt = new Date(now.getTime() + NOTIFICATION_TTL * 1000);
 
-    // create record
+    // PEHLE create karo (visitor._id chahiye FCM data mein)
     const visitor = await Visitor.create({
       buildingCode,
       name,
+      mobile,
+      purpose,
       photoUrl,
       flatNo,
-      memberId,
       guardId,
+      notifiedMembers: members.map((m) => m._id),
       status: "Pending",
       notificationSentAt: now,
       notificationExpiresAt: expiresAt,
       entryTime: now,
     });
 
-    // send FCM to member
-    if (member.fcmToken) {
-      await sendFCMNotification({
-        token: member.fcmToken,
-        title: `Visitor is waiting at Gate`,
-        body: `${name} aaya hai aapke liye. Approve ya Deny karo.`,
-        data: {
+    // PHIR FCM bhejo
+    if (members.length > 0) {
+      const tokens = members.map((m) => m.fcmToken);
+      await sendFCM(
+        tokens,
+        "Visitor at Gate 🔔",
+        `${name} aaya hai. Approve ya Deny karo.`,
+        {
           type: "VISITOR_APPROVAL",
           visitorId: visitor._id.toString(),
-          visitorName: name,
           flatNo,
+          visitorName: name,
+          purpose,
+          photoUrl: photoUrl || "",
           expiresAt: expiresAt.toISOString(),
-        },
-      });
+        }
+      );
     }
+
+    // Guard ke socket room ko bhi emit (real-time tracking ke liye)
+    const io = req.app.get("io");
+    io.to(`guard_${guardId}`).emit("visitor_pending", {
+      visitorId: visitor._id,
+      name,
+      flatNo,
+      expiresAt,
+    });
 
     return res.status(201).json({
       success: true,
-      message: "Visitor request created, member ko notification bheji",
       data: {
         visitorId: visitor._id,
         notificationExpiresAt: expiresAt,
-        ttlSeconds: NOTIFICATION_TTL_SECONDS,
+        ttlSeconds: NOTIFICATION_TTL,
+        membersNotified: members.length,
       },
     });
   } catch (error) {
@@ -104,5 +83,4 @@ const createVisitorPendingRequest = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 export default createVisitorPendingRequest;

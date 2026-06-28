@@ -198,7 +198,11 @@ const memberSchema = new mongoose.Schema(
 // =========================
 memberSchema.index(
   { buildingCode: 1, unitNo: 1, memberType: 1, role: 1 },
-  { unique: true }
+  { 
+    unique: true,
+    partialFilterExpression: { role: "primary" }  // sirf primary pe enforce
+  }
 );
-
-export default mongoose.model("Member", memberSchema);
+// export default mongoose.model("Member", memberSchema);
+export default mongoose.models.Member ||
+  mongoose.model("Member", memberSchema);

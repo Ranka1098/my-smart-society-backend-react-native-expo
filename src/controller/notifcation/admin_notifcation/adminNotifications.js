@@ -2,7 +2,7 @@ import NotificationModel from "../../../model/notification.js";
 
 const adminNotifications = async (req, res) => {
   try {
-    const adminId = req.admin._id; // middleware se
+    const adminId = req.admin.id; // middleware se
     const buildingCode = req.buildingCode;
 
     const notifications = await NotificationModel.find({

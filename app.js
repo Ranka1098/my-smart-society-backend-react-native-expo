@@ -26,6 +26,7 @@ import noticeRouter from "./src/routes/noticeRouter.js";
 import staffRouter from "./src/routes/staffRouter.js";
 import complaintRouter from "./src/routes/complaintRouter.js";
 import notifcationRouter from "./src/routes/notifcationRouter.js";
+import visitorRouter from "./src/routes/visitorRouter.js";
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 connectDB();
@@ -80,6 +81,11 @@ io.on("connection", (socket) => {
     socket.join(`member_${memberId}`);
   });
 
+  socket.on("join_guard", (guardId) => {
+    socket.join(`guard_${guardId}`);
+    console.log(`Guard ${guardId} joined room`);
+  });
+
   socket.on("join_superadmin", () => {
     socket.join("superadmin");
   });
@@ -100,7 +106,7 @@ app.use("/", noticeRouter);
 app.use("/", staffRouter);
 app.use("/", complaintRouter);
 app.use("/", notifcationRouter);
-
+app.use("/", visitorRouter);
 const PORT = process.env.PORT || 1098;
 
 // app.listen → server.listen
