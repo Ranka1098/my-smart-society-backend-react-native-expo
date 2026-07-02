@@ -1,7 +1,7 @@
 // controllers/member/verifyFamilyMemberOtp.js
-import Member from "../../../model/member.js";
-import Building from "../../../model/building.js";
-import { notifyMemberToAdmin } from "../../notifcation/notifyMembers.js";
+import Member from "../../model/member.js";
+import Building from "../../model/building.js";
+import { notifyMemberToAdmin } from "../notifcation/notifyMembers.js";
 
 const verifyFamilyMemberOtp = async (req, res) => {
   try {

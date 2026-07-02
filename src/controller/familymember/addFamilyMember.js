@@ -1,8 +1,8 @@
 // controllers/member/addFamilyMember.js
-import Member from "../../../model/member.js";
+import Member from "../../model/member.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import sendOtpEmail from "../../../utils/sendEmailOtp.js";
+import sendOtpEmail from "../../utils/sendEmailOtp.js";
 
 const addFamilyMember = async (req, res) => {
   try {

@@ -1,6 +1,6 @@
 
 
-import Member from "../../../model/member.js";
+import Member from "../../model/member.js";
 
 const rejectFamilyMemberRequest = async (req, res) => {
   try {

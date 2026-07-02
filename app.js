@@ -34,7 +34,7 @@ connectDB();
 const app = express();
 const server = createServer(app);
 
-// Socket.IO setup
+// new server se socket create karte hai
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -42,7 +42,7 @@ const io = new Server(server, {
   },
 });
 
-// io globally accessible in controllers
+// io use karke jo socket banaya tha usko controler se kahi bhi use kar sakte hai
 app.set("io", io);
 
 // Middleware
@@ -68,6 +68,9 @@ io.on("connection", (socket) => {
     socket.join(buildingCode);
     console.log(`Socket ${socket.id} joined building: ${buildingCode}`);
   });
+  // Jab koi naya phone (app) connect hota hai (member app khulta hai), ye function fire hota hai automatically.
+  // socket = us specific user ka individual phone line. Ek user = ek socket.
+  //Socket abc123xyz disconnected   // (ya connection wala log agar likhte)
 
   socket.on("join_admin", (buildingCode) => {
     socket.join(`admin_${buildingCode}`);
@@ -78,8 +81,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("join_member", (memberId) => {
+    console.log(`✅ Member joined room: member_${memberId}`); // ADD
     socket.join(`member_${memberId}`);
   });
+  // Rooms — sabse important part
+  // Socket.IO me "room" = ek group jisme multiple sockets ko daal sakte ho, phir us pure group ko ek saath message bhej sakte ho.
 
   socket.on("join_guard", (guardId) => {
     socket.join(`guard_${guardId}`);

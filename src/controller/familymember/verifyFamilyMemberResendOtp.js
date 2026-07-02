@@ -3,8 +3,8 @@
 // =========================
 
 import crypto from "crypto";
-import memberModel from "../../../model/member.js"; // ← same model
-import sendEmail from "../../../utils/sendEmailOtp.js";
+import memberModel from "../../model/member.js"; // ← same model
+import sendEmail from "../../utils/sendEmailOtp.js";
 
 const verifyFamilyMemberResendOtp = async (req, res) => {
   try {

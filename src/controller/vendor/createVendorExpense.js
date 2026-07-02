@@ -21,13 +21,11 @@ const createVendorExpense = async (req, res) => {
 
     amount = Number(amount);
     if (isNaN(amount) || amount <= 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          field: "amount",
-          message: "Invalid expense amount",
-        });
+      return res.status(400).json({
+        success: false,
+        field: "amount",
+        message: "Invalid expense amount",
+      });
     }
 
     const vendor = await vendorModel.findOne({
@@ -72,23 +70,30 @@ const createVendorExpense = async (req, res) => {
       photoUrl,
     });
 
-    // ── NOTIFY ALL MEMBERS ──
+    console.log(
+      "[EXPENSE] Notifying members — expenseId:",
+      expense._id.toString()
+    );
     const io = req.app.get("io");
     await notifyAllMembers({
       io,
       buildingCode,
       buildingId,
       type: "EXPENSE",
-      title: "New Expense Added 💸",
+      title: "New Vendor Expense Added 💸",
       message: `${vendor.companyName} - ₹${amount} expense recorded`,
       referenceId: expense._id,
       referenceModel: "VendorExpense",
       data: {
         expenseId: expense._id.toString(),
         vendorName: vendor.companyName,
+        service: vendor.service, // ✅ add — member UI needs this
         amount: String(amount),
+        photoUrl: photoUrl || "", // ✅ add
+        createdAt: expense.createdAt.toISOString(), // ✅ add — expense ka apna date, notif ka nahi
       },
     });
+    console.log("[EXPENSE] Notify done for expenseId:", expense._id.toString());
 
     return res.status(201).json({
       success: true,
@@ -99,25 +104,21 @@ const createVendorExpense = async (req, res) => {
     console.error("Create Vendor Expense Error:", error);
     if (error.name === "ValidationError") {
       const firstError = Object.values(error.errors)[0];
-      return res
-        .status(400)
-        .json({
-          success: false,
-          field: firstError.path,
-          message: firstError.message,
-        });
+      return res.status(400).json({
+        success: false,
+        field: firstError.path,
+        message: firstError.message,
+      });
     }
     if (error.name === "CastError") {
       return res
         .status(400)
         .json({ success: false, message: "Invalid vendor ID" });
     }
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: error.message || "Internal server error",
-      });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
   }
 };
 

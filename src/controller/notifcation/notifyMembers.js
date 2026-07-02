@@ -1,10 +1,11 @@
+// notifyMembers.js — full updated file
+
 import Notification from "../../model/notification.js";
 import Member from "../../model/member.js";
 import Admin from "../../model/admin.js";
 import Staff from "../../model/staff.js";
-import { sendFCM } from "./sendFcmNotification.js"; // tera existing FCM utility
+import { sendFCM } from "./sendFcmNotification.js";
 
-// ─── Core sender ───────────────────────────────────────────────────────────
 async function createAndSend({
   io,
   buildingCode,
@@ -19,7 +20,6 @@ async function createAndSend({
   receiverId = null,
   receiverModel = null,
 }) {
-  // 1. MongoDB save
   const notification = await Notification.create({
     buildingCode,
     buildingId,
@@ -34,26 +34,31 @@ async function createAndSend({
     receiverModel,
   });
 
-  // 2. FCM tokens collect + Socket emit
   let tokens = [];
-  const socketRoom = buildingCode; // room = buildingCode
 
   if (audience === "MEMBERS") {
-    const members = await Member.find({
-      buildingCode,
-      fcmToken: { $ne: null },
-    }).select("fcmToken");
+    const members = await Member.find({ buildingCode }).select("_id fcmToken");
     tokens = members.map((m) => m.fcmToken).filter(Boolean);
-    console.log("Member tokens found:", tokens.length); // ← ADD
-    console.log("Socket room:", socketRoom); // ← ADD
-    io.to(socketRoom).emit("notification", { type, title, message, data });
+
+    members.forEach((m) => {
+      const room = `member_${m._id.toString()}`;
+      console.log("[SOCKET EMIT] notification →", room, "| type:", type);
+      io.to(room).emit("notification", {
+        _id: notification._id.toString(),
+        type,
+        title,
+        message,
+        data, // ✅ real expense fields ab isi ke andar (vendorName, service, amount, photoUrl, createdAt)
+        isRead: false,
+        createdAt: notification.createdAt,
+      });
+    });
   } else if (audience === "ADMIN") {
     const admin = await Admin.findOne({
       buildingCode,
       fcmToken: { $ne: null },
     }).select("fcmToken");
     if (admin?.fcmToken) tokens = [admin.fcmToken];
-    // admin ka apna socket room
     io.to(`admin_${buildingCode}`).emit("notification", {
       type,
       title,
@@ -81,22 +86,27 @@ async function createAndSend({
     io.to("superadmin").emit("notification", { type, title, message, data });
   }
 
-  // 3. FCM multicast (app closed → push with sound)
-  // FCM fail hone pe bhi crash na ho, aur log karo
+  // notifyMembers.js — createAndSend() ke andar
+
   if (tokens.length > 0) {
     try {
-      await sendFCM(tokens, title, message, data);
+      await sendFCM(tokens, title, message, {
+        ...data,
+        type,
+        _id: notification._id.toString(), // ✅ fix — DB ka real _id FCM payload me bhi bhejo
+      });
     } catch (fcmErr) {
       console.error(
         "FCM send failed (notification saved in DB):",
         fcmErr.message
       );
-      // notification MongoDB mein already save hai — safe
     }
   }
+
+  return notification;
 }
+
 // ─── 1. Admin → Superadmin ─────────────────────────────────────────────────
-// Usage: new building register hone pe
 export async function notifyAdminToSuperadmin({
   io,
   buildingCode,
@@ -119,7 +129,6 @@ export async function notifyAdminToSuperadmin({
 }
 
 // ─── 2. Admin → All Members + Staff ────────────────────────────────────────
-// Usage: notice post, meeting schedule
 export async function notifyAllMembersAndStaff({
   io,
   buildingCode,
@@ -131,7 +140,6 @@ export async function notifyAllMembersAndStaff({
   referenceModel,
   data = {},
 }) {
-  // Members ko
   await createAndSend({
     io,
     buildingCode,
@@ -144,7 +152,6 @@ export async function notifyAllMembersAndStaff({
     referenceModel,
     data,
   });
-  // Staff ko
   await createAndSend({
     io,
     buildingCode,
@@ -160,7 +167,6 @@ export async function notifyAllMembersAndStaff({
 }
 
 // ─── 3. Admin → All Members only ───────────────────────────────────────────
-// Usage: maintenance calculate, expense add, vendor
 export async function notifyAllMembers({
   io,
   buildingCode,
@@ -187,7 +193,6 @@ export async function notifyAllMembers({
 }
 
 // ─── 4. Member → Admin ─────────────────────────────────────────────────────
-// Usage: complaint register
 export async function notifyMemberToAdmin({
   io,
   buildingCode,
@@ -216,8 +221,7 @@ export async function notifyMemberToAdmin({
   });
 }
 
-// ─── 5. Visitor → Specific Member (future: visitor management) ─────────────
-// Usage: gate pe visitor aaya, guard us flat ke member ko notify kare
+// ─── 5. Visitor → Specific Member ──────────────────────────────────────────
 export async function notifyVisitorToMember({
   io,
   buildingCode,
@@ -229,11 +233,10 @@ export async function notifyVisitorToMember({
   data = {},
   referenceId = null,
 }) {
-  // Save notification (specific member ke liye)
   const notification = await Notification.create({
     buildingCode,
     buildingId,
-    type: "VISITOR_ARRIVED", // model enum me add karna baad mein
+    type: "VISITOR_ARRIVED",
     audience: "SPECIFIC_MEMBER",
     receiverId: memberId,
     receiverModel: "MEMBER",
@@ -244,16 +247,17 @@ export async function notifyVisitorToMember({
     referenceModel: "Visitor",
   });
 
-  // Socket → specific member room
   io.to(`member_${memberId}`).emit("visitor_notification", {
     title,
     message,
     data,
   });
 
-  // FCM → specific member
   if (memberFcmToken) {
-    await sendFCM([memberFcmToken], title, message, data);
+    await sendFCM([memberFcmToken], title, message, {
+      ...data,
+      type: "VISITOR_ARRIVED",
+    }); // ✅
   }
 
   return notification;

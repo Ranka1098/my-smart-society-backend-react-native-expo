@@ -1,6 +1,6 @@
 // FILE: controllers/member/getFamilyMembers.js
 
-import Member from "../../../model/member.js";
+import Member from "../../model/member.js";
 
 const getFamilyMembers = async (req, res) => {
   try {

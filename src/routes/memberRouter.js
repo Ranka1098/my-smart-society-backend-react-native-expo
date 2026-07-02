@@ -11,10 +11,10 @@ import memberLogin from "../controller/member/login-logout/memberLogin.js";
 import memberLogout from "../controller/member/login-logout/memberLogout.js";
 
 // Family Member
-import addFamilyMember from "../controller/member/Family_Member/addFamilyMember.js";
-import verifyFamilyMemberOtp from "../controller/member/Family_Member/verifyFamilyMemberOtp.js";
-import verifyFamilyMemberResendOtp from "../controller/member/Family_Member/verifyFamilyMemberResendOtp.js";
-import getFamilyMembers from "../controller/member/Family_Member/getFamilyMembers.js";
+import addFamilyMember from "../controller/familymember/addFamilyMember.js";
+import verifyFamilyMemberOtp from "../controller/familymember/verifyFamilyMemberOtp.js";
+import verifyFamilyMemberResendOtp from "../controller/familymember/verifyFamilyMemberResendOtp.js";
+import getFamilyMembers from "../controller/familymember/getFamilyMembers.js";
 
 // Misc
 import getDashboardStats from "../controller/admin/dashbaordStat/getDashboardStats.js";
@@ -27,9 +27,9 @@ import memberAuth from "../middleware/memberAuth.js";
 import adminAuth from "../middleware/adminAuth.js";
 
 // Admin Family Approval — adminRouter mein daalo, yahan nahi
-import approveFamilyMemberRequest from "../controller/member/Family_Member/approveFamilyMemberRequest.js";
-import rejectFamilyMemberRequest from "../controller/member/Family_Member/rejectFamilyMemberRequest.js";
-import getFamilyMembersPendingRequest from "../controller/member/Family_Member/getFamilyMembersPendingRequest.js";
+import approveFamilyMemberRequest from "../controller/familymember/approveFamilyMemberRequest.js";
+import rejectFamilyMemberRequest from "../controller/familymember/rejectFamilyMemberRequest.js";
+import getFamilyMembersPendingRequest from "../controller/familymember/getFamilyMembersPendingRequest.js";
 
 const memberRouter = express.Router();
 

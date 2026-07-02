@@ -29,7 +29,7 @@ const visitorSchema = new mongoose.Schema(
     rejectionReason: { type: String },
     verificationMethod: {
       type: String,
-      enum: ["FCM", "ManualCall", "ForcedEntry"],
+      enum: ["FCM", "ManualCall", "ForcedEntry", "Denied"],
     },
     forcedEntryReason: { type: String },
     notificationSentAt: { type: Date },

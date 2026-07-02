@@ -6,19 +6,29 @@ const memberApproveOrDeny = async (req, res) => {
     const memberId = req.member._id;
 
     if (!visitorId || !["approve", "deny"].includes(action)) {
-      return res.status(400).json({ success: false, message: "visitorId aur action required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "visitorId aur action required" });
     }
 
     const visitor = await Visitor.findById(visitorId);
-    if (!visitor) return res.status(404).json({ success: false, message: "Visitor nahi mila" });
+    if (!visitor)
+      return res
+        .status(404)
+        .json({ success: false, message: "Visitor nahi mila" });
 
     if (visitor.status !== "Pending") {
-      return res.status(409).json({ success: false, message: `Already ${visitor.status}` });
+      return res
+        .status(409)
+        .json({ success: false, message: `Already ${visitor.status}` });
     }
 
     const now = new Date();
     if (now > visitor.notificationExpiresAt) {
-      return res.status(410).json({ success: false, message: "Notification expire ho gayi. Guard se baat karo." });
+      return res.status(410).json({
+        success: false,
+        message: "Notification expire ho gayi. Guard se baat karo.",
+      });
     }
 
     if (action === "approve") {
@@ -35,13 +45,15 @@ const memberApproveOrDeny = async (req, res) => {
 
     await visitor.save();
 
-    // ✅ Guard ko real-time update bhejo
+    // ── respondedBy populate karo taaki fullName mile guard ko ──
+    await visitor.populate("respondedBy", "fullName");
+
     const io = req.app.get("io");
     io.to(`guard_${visitor.guardId}`).emit("visitor_decision", {
       visitorId: visitor._id,
       status: visitor.status,
       action,
-      respondedBy: memberId,
+      respondedBy: visitor.respondedBy, // { _id, fullName }
     });
 
     return res.status(200).json({
@@ -54,4 +66,5 @@ const memberApproveOrDeny = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
 export default memberApproveOrDeny;

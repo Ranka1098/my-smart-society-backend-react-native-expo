@@ -1,13 +1,15 @@
 import Visitor from "../../model/Visitor.js";
 import Member from "../../model/Member.js";
 import { sendFCM } from "../notifcation/sendFcmNotification.js";
+import sharp from "sharp";
+import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
 
 const NOTIFICATION_TTL = 60;
 
 const createVisitorPendingRequest = async (req, res) => {
   try {
-    const { buildingCode, name, mobile, purpose, photoUrl, flatNo } = req.body;
-    const guardId = req.staff._id; // staffAuth middleware se
+    const { buildingCode, name, mobile, purpose, flatNo } = req.body;
+    const guardId = req.staff._id;
 
     if (!buildingCode || !name || !purpose || !flatNo) {
       return res
@@ -15,21 +17,34 @@ const createVisitorPendingRequest = async (req, res) => {
         .json({ success: false, message: "Required fields missing" });
     }
 
-    // flat ke members fetch karo
+    let photoUrl = null;
+    if (req.file) {
+      if (!req.file.mimetype.startsWith("image")) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Only image files allowed" });
+      }
+      const compressed = await sharp(req.file.buffer)
+        .resize({ width: 1200, withoutEnlargement: true })
+        .jpeg({ quality: 70 })
+        .toBuffer();
+      const uploaded = await uploadToCloudinary(compressed, "visitorPhotos");
+      photoUrl = uploaded.secure_url;
+    }
+
+    // Fetch ALL members of flat (FCM token optional — socket needs _id)
     const members = await Member.find({
       buildingCode,
-      flatNo,
-      fcmToken: { $exists: true, $ne: null },
+      unitNo: flatNo,
     }).select("_id fcmToken");
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + NOTIFICATION_TTL * 1000);
 
-    // PEHLE create karo (visitor._id chahiye FCM data mein)
     const visitor = await Visitor.create({
       buildingCode,
       name,
-      mobile,
+      mobile: mobile || null,
       purpose,
       photoUrl,
       flatNo,
@@ -41,9 +56,12 @@ const createVisitorPendingRequest = async (req, res) => {
       entryTime: now,
     });
 
-    // PHIR FCM bhejo
-    if (members.length > 0) {
-      const tokens = members.map((m) => m.fcmToken);
+    const io = req.app.get("io");
+
+    // ── FCM: sirf jinke paas token hai ──
+    const membersWithToken = members.filter((m) => m.fcmToken);
+    if (membersWithToken.length > 0) {
+      const tokens = membersWithToken.map((m) => m.fcmToken);
       await sendFCM(
         tokens,
         "Visitor at Gate 🔔",
@@ -60,8 +78,23 @@ const createVisitorPendingRequest = async (req, res) => {
       );
     }
 
-    // Guard ke socket room ko bhi emit (real-time tracking ke liye)
-    const io = req.app.get("io");
+    // ── SOCKET: saare flat members ko visitor_request emit karo ──
+    const visitorPayload = {
+      visitorId: visitor._id.toString(),
+      name,
+      purpose,
+      photoUrl: photoUrl || null,
+      flatNo,
+      buildingCode,
+      ttlSeconds: NOTIFICATION_TTL,
+      expiresAt: expiresAt.toISOString(),
+    };
+
+    members.forEach((m) => {
+      io.to(`member_${m._id}`).emit("visitor_request", visitorPayload);
+    });
+
+    // ── Guard ko pending confirm ──
     io.to(`guard_${guardId}`).emit("visitor_pending", {
       visitorId: visitor._id,
       name,
@@ -76,6 +109,7 @@ const createVisitorPendingRequest = async (req, res) => {
         notificationExpiresAt: expiresAt,
         ttlSeconds: NOTIFICATION_TTL,
         membersNotified: members.length,
+        photoUrl,
       },
     });
   } catch (error) {
@@ -83,4 +117,5 @@ const createVisitorPendingRequest = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
 export default createVisitorPendingRequest;

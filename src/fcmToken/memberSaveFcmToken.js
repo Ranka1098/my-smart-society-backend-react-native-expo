@@ -13,7 +13,6 @@ const memberSaveFcmToken = async (req, res) => {
 
     await memberModel.findByIdAndUpdate(memberId, {
       fcmToken,
-      currentDeviceId: deviceId || null,
     });
 
     return res.status(200).json({ success: true, message: "FCM token saved" });

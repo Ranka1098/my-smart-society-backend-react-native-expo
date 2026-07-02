@@ -1,4 +1,4 @@
-import Member from "../../../model/member.js";
+import Member from "../../model/member.js";
 
 const getFamilyMembersPendingRequest = async (req, res) => {
   try {
