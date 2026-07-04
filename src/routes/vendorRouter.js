@@ -22,7 +22,7 @@ vendorRouter.post("/createVendor", adminAuth, createVendor);
 //get all vendor list
 vendorRouter.get("/getAllVendors", adminAuth, getAllVendors);
 
-// CREATE VENDOR EXPENSE
+// CREATE VENDOR VENDOR_EXPENSE
 vendorRouter.post(
   "/createVendorExpense",
   upload.single("photo"),

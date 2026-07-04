@@ -6,6 +6,7 @@ export const sendFCM = async (tokens, title, body, data = {}) => {
     Object.entries(data).map(([k, v]) => [k, String(v)])
   );
   try {
+    const startTime = Date.now();
     const result = await getMessaging().sendEachForMulticast({
       tokens,
       data: { title, body, ...stringData },
@@ -18,6 +19,7 @@ export const sendFCM = async (tokens, title, body, data = {}) => {
         },
       },
     });
+    console.log(`[FCM] Sent in ${Date.now() - startTime}ms`);
     console.log(
       `[FCM] Sent: ${result.successCount} success, ${result.failureCount} failed`
     );

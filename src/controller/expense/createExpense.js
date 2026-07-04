@@ -10,9 +10,6 @@ const createExpense = async (req, res) => {
     const buildingId = req.admin.buildingId;
     const { billType, amount, description, paidTo, paymentMethod } = req.body;
 
-    // =========================
-    // Validation
-    // =========================
     if (!billType || amount === undefined || !paidTo || !paymentMethod) {
       return res.status(400).json({
         success: false,
@@ -20,9 +17,6 @@ const createExpense = async (req, res) => {
       });
     }
 
-    // =========================
-    // Check Image
-    // =========================
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -30,9 +24,6 @@ const createExpense = async (req, res) => {
       });
     }
 
-    // =========================
-    // Image Validation
-    // =========================
     if (!req.file.mimetype.startsWith("image")) {
       return res.status(400).json({
         success: false,
@@ -40,30 +31,16 @@ const createExpense = async (req, res) => {
       });
     }
 
-    // =========================
-    // Compress Image
-    // =========================
     const compressedImageBuffer = await sharp(req.file.buffer)
-      .resize({
-        width: 1200,
-        withoutEnlargement: true,
-      })
-      .jpeg({
-        quality: 70,
-      })
+      .resize({ width: 1200, withoutEnlargement: true })
+      .jpeg({ quality: 70 })
       .toBuffer();
 
-    // =========================
-    // Upload To Cloudinary
-    // =========================
     const uploadedImage = await uploadToCloudinary(
       compressedImageBuffer,
       "expenseBills"
     );
 
-    // =========================
-    // Save Expense
-    // =========================
     const expense = await expenseModel.create({
       billType,
       amount,
@@ -73,11 +50,17 @@ const createExpense = async (req, res) => {
       buildingCode,
       billProof: uploadedImage.secure_url,
     });
+
+    console.log(
+      "[SOCIETY_EXPENSE] Notifying members — expenseId:",
+      expense._id.toString()
+    );
+
     await notifyAllMembers({
       io,
       buildingCode,
       buildingId,
-      type: "EXPENSE",
+      type: "SOCIETY_EXPENSE", // ✅ change — VENDOR_EXPENSE se alag identify karne ke liye
       title: "New Expense Added 💸",
       message: `${billType} - ₹${amount} expense recorded`,
       referenceId: expense._id,
@@ -86,8 +69,18 @@ const createExpense = async (req, res) => {
         expenseId: expense._id.toString(),
         billType,
         amount: String(amount),
+        paidTo, // ✅ add — SocietyAllExpenseList list card ko chahiye
+        paymentMethod: paymentMethod, // ✅ add
+        description: description || "", // ✅ add
+        billProof: uploadedImage.secure_url, // ✅ add — "View Proof" button ke liye
+        createdAt: expense.createdAt.toISOString(), // ✅ add
       },
     });
+
+    console.log(
+      "[SOCIETY_EXPENSE] Notify done for expenseId:",
+      expense._id.toString()
+    );
 
     return res.status(201).json({
       success: true,
@@ -95,11 +88,11 @@ const createExpense = async (req, res) => {
       expense,
     });
   } catch (error) {
-    console.log("❌ createExpense Error:", error.message); // <-- error.message add karo
-    console.log("❌ Full Error:", error); // <-- full stack bhi
+    console.log("❌ createExpense Error:", error.message);
+    console.log("❌ Full Error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Server Error", // <-- actual message bhejo
+      message: error.message || "Server Error",
     });
   }
 };

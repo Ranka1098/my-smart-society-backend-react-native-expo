@@ -20,7 +20,8 @@ const notificationSchema = new mongoose.Schema(
       enum: [
         "NEW_BUILDING_REGISTERED",
         "MAINTENANCE_PAID",
-        "EXPENSE",
+        "VENDOR_EXPENSE",
+        "SOCIETY_EXPENSE",
         "NOTICE_POSTED",
         "MEETING_CREATED",
         "COMPLAINT_ADD",

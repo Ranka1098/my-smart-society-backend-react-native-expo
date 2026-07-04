@@ -71,7 +71,7 @@ const createVendorExpense = async (req, res) => {
     });
 
     console.log(
-      "[EXPENSE] Notifying members — expenseId:",
+      "[VENDOR_EXPENSE] Notifying members — expenseId:",
       expense._id.toString()
     );
     const io = req.app.get("io");
@@ -79,7 +79,8 @@ const createVendorExpense = async (req, res) => {
       io,
       buildingCode,
       buildingId,
-      type: "EXPENSE",
+      // type: "VENDOR_EXPENSE",
+      type: "VENDOR_EXPENSE",
       title: "New Vendor Expense Added 💸",
       message: `${vendor.companyName} - ₹${amount} expense recorded`,
       referenceId: expense._id,
@@ -93,7 +94,7 @@ const createVendorExpense = async (req, res) => {
         createdAt: expense.createdAt.toISOString(), // ✅ add — expense ka apna date, notif ka nahi
       },
     });
-    console.log("[EXPENSE] Notify done for expenseId:", expense._id.toString());
+    console.log("[VENDOR_EXPENSE] Notify done for expenseId:", expense._id.toString());
 
     return res.status(201).json({
       success: true,
