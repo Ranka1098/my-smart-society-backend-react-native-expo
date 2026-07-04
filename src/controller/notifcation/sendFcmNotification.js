@@ -14,7 +14,7 @@ export const sendFCM = async (tokens, title, body, data = {}) => {
       },
       apns: {
         payload: {
-          aps: { "content-available": 1 }, // silent data push, badge alag se nahi
+          aps: { "content-available": 1, sound: "default" }, // silent data push, badge alag se nahi
         },
       },
     });
