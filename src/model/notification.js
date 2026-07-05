@@ -26,7 +26,6 @@ const notificationSchema = new mongoose.Schema(
         "SOCIETY_EXPENSE",
         "NOTICE_POSTED",
         "MEETING_CREATED",
-        "COMPLAINT_ADD",
         "COMPLAINT_RAISED",
         "COMPLAINT_RESOLVED",
         "NEW_MEMBER_REQUEST",
