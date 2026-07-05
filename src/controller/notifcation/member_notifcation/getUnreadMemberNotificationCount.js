@@ -8,10 +8,10 @@ const getUnreadMemberNotificationCount = async (req, res) => {
     const count = await Notification.countDocuments({
       buildingCode,
       $or: [
-        { audience: "MEMBERS" },
-        { receiverId: memberId, receiverModel: "MEMBER" },
+        { audience: "MEMBERS", receiverId: null }, // ✅ sirf true broadcast
+        { receiverId: memberId, receiverModel: "MEMBER" }, // ✅ apna targeted
       ],
-      "readBy.userId": { $ne: memberId }, // unread = not in readBy
+      "readBy.userId": { $ne: memberId },
     });
 
     return res.status(200).json({ success: true, count });

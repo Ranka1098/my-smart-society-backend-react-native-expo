@@ -23,7 +23,6 @@ const maintenanceSchema = new mongoose.Schema(
     receiptNo: { type: Number, default: null },
     bulkPaymentRef: { type: String, default: null },
 
-    // ── Add these ──
     memberName: { type: String, default: "—" },
     memberType: { type: String, enum: ["Flat", "Shop"], default: null },
     No: { type: String, default: null },
@@ -32,9 +31,12 @@ const maintenanceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// ✅ FIX — galat tha { buildingCode, month } unique (ek month me sirf 1 doc allow karta tha, sab members ke liye nahi)
+// sahi index: ek member ka ek month me sirf ek hi maintenance record hona chahiye
 maintenanceSchema.index(
-  { buildingCode: 1, memberId: 1, month: 1 },
+  { buildingCode: 1, month: 1, memberId: 1 },
   { unique: true }
 );
 
-export default mongoose.model("Maintenance", maintenanceSchema);
+export default mongoose.models.Maintenance ||
+  mongoose.model("Maintenance", maintenanceSchema);

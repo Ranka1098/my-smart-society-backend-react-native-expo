@@ -8,9 +8,9 @@ const memberNotifications = async (req, res) => {
     const notifications = await NotificationModel.find({
       buildingCode,
       $or: [
-        { audience: "MEMBERS" },
+        { audience: "MEMBERS", receiverId: null }, // ✅ true broadcast — sab dekhein
         { audience: "STAFF" },
-        { receiverId: memberId, receiverModel: "MEMBER" },
+        { receiverId: memberId, receiverModel: "MEMBER" }, // ✅ apna targeted
       ],
     })
       .sort({ createdAt: -1 })

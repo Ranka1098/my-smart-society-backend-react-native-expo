@@ -19,7 +19,7 @@ maintenanceRouter.post(
   adminAuth,
   createMaintenance
 );
-maintenanceRouter.post(
+maintenanceRouter.get(
   "/getMaintenanceByMonth",
   adminAuth,
   getMaintenanceByMonth
