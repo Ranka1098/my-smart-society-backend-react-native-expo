@@ -21,6 +21,7 @@ const notificationSchema = new mongoose.Schema(
         "NEW_BUILDING_REGISTERED",
         "MAINTENANCE_PAID",
         "MAINTENANCE_GENERATED",
+        "MAINTENANCE_PENDING",
         "VENDOR_EXPENSE",
         "SOCIETY_EXPENSE",
         "NOTICE_POSTED",

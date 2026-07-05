@@ -53,12 +53,14 @@ const sendReminder = async (req, res) => {
       unitNo: String(member.unitNo),
     };
 
-    // 1. DB save
-    await Notification.create({
+    // 1. DB save — ✅ receiverId set karo, warna "MEMBERS"+receiverId:null = broadcast ban jata
+    const notification = await Notification.create({
       buildingCode,
-      buildingId, // ✅ fixed
-      type: "MAINTENANCE_PAID",
+      buildingId,
+      type: "MAINTENANCE_PENDING",
       audience: "MEMBERS",
+      receiverId: member._id, // ✅ targeted — sirf isi member ka
+      receiverModel: "MEMBER", // ✅
       title,
       message,
       referenceId: maintenance._id,
@@ -66,17 +68,25 @@ const sendReminder = async (req, res) => {
       data,
     });
 
-    // 2. Socket
-    io.to(buildingCode).emit("notification", {
-      type: "MAINTENANCE_PAID",
+    // 2. Socket — ✅ sirf usi member ke room me emit, poore building me nahi
+    const room = `member_${member._id.toString()}`;
+    io.to(room).emit("notification", {
+      _id: notification._id.toString(),
+      type: "MAINTENANCE_PENDING",
       title,
       message,
       data,
+      isRead: false,
+      createdAt: notification.createdAt,
     });
 
     // 3. FCM
     if (member.fcmToken) {
-      await sendFCM([member.fcmToken], title, message, data);
+      await sendFCM([member.fcmToken], title, message, {
+        ...data,
+        type: "MAINTENANCE_PENDING",
+        _id: notification._id.toString(),
+      });
     }
 
     return res
