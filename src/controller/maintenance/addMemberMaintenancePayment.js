@@ -61,7 +61,7 @@ const addMemberMaintenancePayment = async (req, res) => {
       totalAmount += bill.amount || 0;
     }
 
-    // ── Notification to member ──
+    // ── Notification to member — ✅ sirf isi member ko ──
     const monthsStr = bills.map((b) => b.month).join(", ");
     const title = "Maintenance Received ✅";
     const message = `Dear ${member.fullName}, payment of ₹${totalAmount} for ${monthsStr} has been received. Thank you!`;
@@ -72,13 +72,16 @@ const addMemberMaintenancePayment = async (req, res) => {
       paymentMode,
     };
 
+    let notification = null;
+
     if (buildingId) {
-      await Notification.create({
+      notification = await Notification.create({
         buildingCode,
         buildingId,
-        memberId: member._id,
         type: "MAINTENANCE_PAID",
         audience: "MEMBERS",
+        receiverId: member._id, // ✅ targeted — sirf isi member ka
+        receiverModel: "MEMBER", // ✅
         title,
         message,
         referenceId: bills[0]._id,
@@ -88,16 +91,25 @@ const addMemberMaintenancePayment = async (req, res) => {
     }
 
     if (io) {
-      io.to(buildingCode).emit("notification", {
+      // ✅ buildingCode room nahi — sirf isi member ke room me emit
+      const room = `member_${member._id.toString()}`;
+      io.to(room).emit("notification", {
+        _id: notification?._id?.toString(),
         type: "MAINTENANCE_PAID",
         title,
         message,
         data,
+        isRead: false,
+        createdAt: notification?.createdAt || now,
       });
     }
 
     if (member.fcmToken) {
-      await sendFCM([member.fcmToken], title, message, data);
+      await sendFCM([member.fcmToken], title, message, {
+        ...data,
+        type: "MAINTENANCE_PAID",
+        _id: notification?._id?.toString(),
+      });
     }
 
     return res.json({
