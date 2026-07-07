@@ -64,12 +64,17 @@ const createNotice = async (req, res) => {
       io,
       buildingCode,
       buildingId: building._id,
-      type: "NOTICE_POSTED",
+      type: "SOCIETY_NOTICE_POSTED",
       title: "New Notice 📢",
       message: title,
       referenceId: notice._id,
       referenceModel: "Notice",
-      data: { noticeId: String(notice._id) },
+      data: {
+        noticeId: notice._id.toString(),
+        title: notice.title,
+        description: notice.description,
+        createdAt: notice.createdAt.toISOString(),
+      },
     });
     // ===============================
     // RESPONSE

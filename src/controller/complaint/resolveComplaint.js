@@ -64,12 +64,14 @@ const resolveComplaint = async (req, res) => {
     const title = "Complaint Resolved ✅";
     const message = `Your ${complaint.category} complaint has been resolved by admin.`;
     const data = {
-      complaintId: String(complaint._id),
+      complaintId: complaint._id.toString(),
       category: complaint.category,
       status: "RESOLVED",
+      resolvedAt: complaint.resolvedAt.toISOString(), // ✅ add — frontend ko chahiye
     };
 
-    await Notification.create({
+    // ✅ fix — result assign kiya, warna notification._id undefined rehta
+    const notification = await Notification.create({
       buildingCode,
       buildingId,
       type: "COMPLAINT_RESOLVED",
@@ -86,16 +88,24 @@ const resolveComplaint = async (req, res) => {
     // Socket → specific member room
     if (io) {
       io.to(`member_${member._id}`).emit("notification", {
+        _id: notification._id.toString(), // ✅ fix — dedupe ke liye zaroori
         type: "COMPLAINT_RESOLVED",
         title,
         message,
         data,
+        isRead: false,
+        createdAt: notification.createdAt,
+        source: "socket", // ✅ fix — member _layout.js sound-gating isi pe depend karta hai
       });
     }
 
     // FCM → specific member only
     if (member.fcmToken) {
-      await sendFCM([member.fcmToken], title, message, data);
+      await sendFCM([member.fcmToken], title, message, {
+        ...data,
+        type: "COMPLAINT_RESOLVED",
+        _id: notification._id.toString(), // ✅ fix — FCM payload me bhi real _id
+      });
     }
 
     return res.status(200).json({

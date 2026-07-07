@@ -16,6 +16,11 @@ import multer from "multer";
 import staffLogin from "../controller/staff/staffLogin.js";
 import searchMembersForVisitor from "../controller/staff/searchMembersForVisitor.js";
 import staffAuth from "../middleware/staffAuth.js";
+
+// ✅ NEW — FCM controllers add
+import staffSaveFcmToken from "../fcmToken/staffSaveFcmToken.js"; // apna sahi path daalo
+import staffRemoveFcmToken from "../fcmToken/staffRemoveFcmToken.js"; // apna sahi path daalo
+
 const upload = multer({ storage: multer.memoryStorage() });
 
 const StaffRouter = express.Router();
@@ -40,5 +45,9 @@ StaffRouter.patch("/admin/approveStaff/:staffId", adminAuth, approveStaff);
 StaffRouter.put("/admin/rejectStaff/:staffId", adminAuth, rejectStaff);
 
 StaffRouter.get("/staff/searchMembers", staffAuth, searchMembersForVisitor);
+
+// ✅ NEW — FCM token routes
+StaffRouter.post("/staffSaveFcmToken", staffAuth, staffSaveFcmToken);
+StaffRouter.post("/staffRemoveFcmToken", staffAuth, staffRemoveFcmToken);
 
 export default StaffRouter;

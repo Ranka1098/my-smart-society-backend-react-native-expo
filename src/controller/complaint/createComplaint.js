@@ -87,10 +87,14 @@ const createComplaint = async (req, res) => {
       referenceId: complaint._id,
       referenceModel: "Complaint",
       data: {
-        complaintId: String(complaint._id),
+        complaintId: complaint._id.toString(),
         unitType,
         unitNo: String(unitNo),
+        memberName,
         category: type,
+        description,
+        status: "PENDING",
+        createdAt: complaint.createdAt.toISOString(),
       },
       senderId: memberId,
     });

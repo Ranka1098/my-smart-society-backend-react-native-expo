@@ -1,7 +1,10 @@
 import StaffModel from "../../model/Staff.js";
+import { notifyAllMembers } from "../notifcation/notifyMembers.js";
+
 const approveStaff = async (req, res) => {
   try {
     const { buildingCode } = req;
+    const buildingId = req.admin.buildingId; // ✅ vendor expense wale pattern jaisa
     const { staffId } = req.params;
 
     const staff = await StaffModel.findOne({ _id: staffId, buildingCode });
@@ -21,7 +24,27 @@ const approveStaff = async (req, res) => {
     staff.joiningDate = new Date();
     await staff.save();
 
-    // TODO: Notify staff via FCM/email that they are approved
+    // ✅ NEW_STAFF_MEMBER_ADDED — sab members ko notify
+    const io = req.app.get("io");
+    await notifyAllMembers({
+      io,
+      buildingCode,
+      buildingId,
+      type: "NEW_STAFF_MEMBER_ADDED",
+      title: "New Staff Added 👷",
+      message: `${staff.workerName} joined as ${staff.role}`,
+      referenceId: staff._id,
+      referenceModel: "Staff",
+      data: {
+        staffId: staff._id.toString(),
+        workerName: staff.workerName,
+        role: staff.role,
+        workerPhoneNumber: staff.workerPhoneNumber || "",
+        workerAddress: staff.workerAddress || "",
+        workerPhoto: staff.workerPhoto || "",
+        joiningDate: staff.joiningDate.toISOString(),
+      },
+    });
 
     return res
       .status(200)

@@ -78,12 +78,17 @@ const createMeeting = async (req, res) => {
       io,
       buildingCode,
       buildingId: building._id,
-      type: "MEETING_CREATED",
-      title: "New Meeting Created 📅",
+      type: "SOCIETY_MEETING_CREATED",
+      title: "New Society Meeting Created 📅",
       message: `Meeting: ${title}`,
       referenceId: meeting._id,
       referenceModel: "Meeting",
-      data: { meetingId: String(meeting._id) },
+      data: {
+        meetingId: meeting._id.toString(),
+        title: meeting.title,
+        discussion: meeting.discussion,
+        createdAt: meeting.createdAt.toISOString(),
+      },
     });
 
     // ===============================
