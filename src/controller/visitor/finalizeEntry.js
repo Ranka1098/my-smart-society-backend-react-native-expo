@@ -28,9 +28,6 @@ const finalizeEntry = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Visitor nahi mila" });
 
-    // ── FIX: sirf truly final statuses block karo ──
-    // "Approved" allow hai — member ne approve kiya, guard ab finalize karta hai
-    // "ForcedEntry" allow hai — guard override kar sakta hai
     const blockedStatuses = ["Rejected", "Exited"];
     if (blockedStatuses.includes(visitor.status)) {
       return res
@@ -49,13 +46,23 @@ const finalizeEntry = async (req, res) => {
       visitor.approvedAt = now;
       visitor.forcedEntryReason = forcedEntryReason.trim();
     } else {
-      // Denied
+      // Denied — guard cancel
       visitor.status = "Rejected";
       visitor.rejectedAt = now;
       visitor.rejectionReason = "Guard ne cancel kiya";
     }
 
     await visitor.save();
+
+    // ── guard cancel → sab notified members ko notify karo ──
+    if (verificationMethod === "Denied") {
+      const io = req.app.get("io");
+      (visitor.notifiedMembers || []).forEach((memberId) => {
+        io.to(`member_${memberId}`).emit("visitor_cancelled_by_guard", {
+          visitorId: visitor._id,
+        });
+      });
+    }
 
     return res.status(200).json({
       success: true,

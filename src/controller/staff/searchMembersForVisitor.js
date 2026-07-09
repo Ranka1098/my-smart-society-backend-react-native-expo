@@ -48,6 +48,7 @@ const searchMembersForVisitor = async (req, res) => {
 
     const results = Object.entries(grouped).map(([unitNo, members]) => ({
       unitNo,
+      buildingCode, // ✅ yeh line add — frontend selectUnit isi ko use karta
       members,
     }));
 

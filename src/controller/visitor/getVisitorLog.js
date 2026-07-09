@@ -21,13 +21,18 @@ const getVisitorLog = async (req, res) => {
     const visitors = await Visitor.find(filter)
       .sort({ entryTime: -1 })
       .limit(100)
-      .populate("memberId", "name phone")
-      .populate("guardId", "name");
+      .populate("notifiedMembers", "name phone");
 
     return res
       .status(200)
       .json({ success: true, count: visitors.length, data: visitors });
   } catch (error) {
+    console.error("===============");
+    console.error(error);
+    console.error(error.message);
+    console.error(error.stack);
+    console.error("===============");
+
     console.error("getVisitorLog error:", error);
     return res.status(500).json({ success: false, message: "Server error" });
   }

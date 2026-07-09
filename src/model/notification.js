@@ -39,7 +39,7 @@ const notificationSchema = new mongoose.Schema(
 
     audience: {
       type: String,
-      enum: ["SUPERADMIN", "MEMBERS", "STAFF", "ADMIN"],
+      enum: ["SUPERADMIN", "MEMBERS", "STAFF", "ADMIN","SPECIFIC_MEMBER"],
       required: true,
     },
 

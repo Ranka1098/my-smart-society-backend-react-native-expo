@@ -6,8 +6,8 @@ import memberApproveOrDeny from "../controller/visitor/memberApproveOrDeny.js";
 import finalizeEntry from "../controller/visitor/finalizeEntry.js";
 import logExit from "../controller/visitor/logExit.js";
 import getVisitorLog from "../controller/visitor/getVisitorLog.js";
-
 import upload from "../cloudinary/multerConfig.js";
+import emergencyExit from "../controller/visitor/emergencyExit.js";
 
 const visitorRouter = express.Router();
 
@@ -18,6 +18,14 @@ visitorRouter.post(
   upload.single("photo"), // ← add this
   createVisitorPendingRequest
 );
+
+visitorRouter.post(
+  "/visitor/emergency-exit",
+  staffAuth,
+  upload.single("photo"),
+  emergencyExit
+);
+
 visitorRouter.post("/finalizeEntry", staffAuth, finalizeEntry);
 visitorRouter.patch("/visitor/:id/exit", staffAuth, logExit);
 visitorRouter.get("/visitor/log", staffAuth, getVisitorLog);

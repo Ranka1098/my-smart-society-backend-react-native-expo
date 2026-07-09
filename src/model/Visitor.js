@@ -21,7 +21,14 @@ const visitorSchema = new mongoose.Schema(
     guardId: { type: ObjectId, ref: "Staff", required: true },
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected", "ForcedEntry", "Exited"],
+      enum: [
+        "Pending",
+        "Approved",
+        "Denied",
+        "Rejected",
+        "ForcedEntry",
+        "Exited",
+      ],
       default: "Pending",
     },
     approvedAt: { type: Date },
@@ -36,6 +43,8 @@ const visitorSchema = new mongoose.Schema(
     notificationExpiresAt: { type: Date },
     entryTime: { type: Date, default: Date.now },
     exitTime: { type: Date },
+    exitPhotoUrl: { type: String },
+    isEmergencyExit: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
