@@ -1,7 +1,4 @@
-// ─────────────────────────────────────────────────────────────────
-// PATCH /api/visitor/:id/exit
-// Guard logs exit time
-// ─────────────────────────────────────────────────────────────────
+import Visitor from "../../model/Visitor.js";
 const logExit = async (req, res) => {
   try {
     const visitor = await Visitor.findByIdAndUpdate(
