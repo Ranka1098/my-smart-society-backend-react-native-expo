@@ -42,6 +42,7 @@ const emergencyExit = async (req, res) => {
     // ── Direct entry+exit record — no FCM/approval flow ──
     const visitor = await Visitor.create({
       buildingCode,
+        name: "Emergency Exit",
       purpose: "Other",
       flatNo,
       guardId,
