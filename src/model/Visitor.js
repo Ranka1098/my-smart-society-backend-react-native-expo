@@ -18,7 +18,7 @@ const visitorSchema = new mongoose.Schema(
     flatNo: { type: String, required: true, trim: true },
     notifiedMembers: [{ type: ObjectId, ref: "Member" }],
     respondedBy: { type: ObjectId, ref: "Member" },
-    guardId: { type: ObjectId, ref: "Staff", required: true },
+    guardId: { type: ObjectId, ref: "Staff"},
     status: {
       type: String,
       enum: [

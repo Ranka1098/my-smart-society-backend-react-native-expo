@@ -8,6 +8,7 @@ import logExit from "../controller/visitor/logExit.js";
 import getVisitorLog from "../controller/visitor/getVisitorLog.js";
 import upload from "../cloudinary/multerConfig.js";
 import emergencyExit from "../controller/visitor/emergencyExit.js";
+import memberPendingVisitor from "../controller/visitor/memberPendingVisitor.js";
 
 const visitorRouter = express.Router();
 
@@ -32,5 +33,6 @@ visitorRouter.get("/visitor/log", staffAuth, getVisitorLog);
 
 // Member routes
 visitorRouter.post("/memberApproveOrDeny", memberAuth, memberApproveOrDeny);
+visitorRouter.get("/memberPendingVisitor", memberAuth, memberPendingVisitor);
 
 export default visitorRouter;

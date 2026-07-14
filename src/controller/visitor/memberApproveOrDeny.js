@@ -48,14 +48,23 @@ const memberApproveOrDeny = async (req, res) => {
     // ── respondedBy populate karo taaki fullName mile guard ko ──
     await visitor.populate("respondedBy", "fullName");
 
-    const io = req.app.get("io");
-    io.to(`guard_${visitor.guardId}`).emit("visitor_decision", {
-      visitorId: visitor._id,
-      status: visitor.status,
-      action,
-      respondedBy: visitor.respondedBy, // { _id, fullName }
-    });
+const io = req.app.get("io");
 
+io.to(`guard_${visitor.guardId}`).emit("visitor_decision", {
+  visitorId: visitor._id,
+  status: visitor.status,
+  action,
+  respondedBy: visitor.respondedBy,
+});
+
+// ✅ NEW: sab notified flat-members ko bhi batao, taki dusre members ka modal band ho
+(visitor.notifiedMembers || []).forEach((mId) => {
+  io.to(`member_${mId}`).emit("visitor_decided", {
+    visitorId: visitor._id,
+    status: visitor.status,
+    decidedBy: memberId,
+  });
+});
     return res.status(200).json({
       success: true,
       message: action === "approve" ? "Approved ✅" : "Denied ❌",

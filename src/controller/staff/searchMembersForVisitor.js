@@ -3,18 +3,17 @@ import Member from "../../model/member.js";
 
 const searchMembersForVisitor = async (req, res) => {
   try {
-    const buildingCode = req.buildingCode; // staffAuth se
-    const { query } = req.query; // ?query=A-101 ya "Rohan"
+    const buildingCode = req.buildingCode;
+    const { query } = req.query;
 
     if (!query || query.trim().length < 1)
       return res
         .status(400)
         .json({ success: false, message: "Query required" });
 
-    // Pehle matching units dhundo (primary members se)
-    const primaryMatches = await Member.find({
+    // sab role (primary + family) pe search
+    const matches = await Member.find({
       buildingCode,
-      role: "primary",
       approvalStatus: "Approved",
       isVerified: true,
       $or: [
@@ -24,11 +23,10 @@ const searchMembersForVisitor = async (req, res) => {
       ],
     }).select("unitNo memberType");
 
-    if (primaryMatches.length === 0)
+    if (matches.length === 0)
       return res.status(200).json({ success: true, results: [] });
 
-    // Un units ke saare members (primary + family)
-    const unitNos = [...new Set(primaryMatches.map((m) => m.unitNo))];
+    const unitNos = [...new Set(matches.map((m) => m.unitNo))];
 
     const allMembers = await Member.find({
       buildingCode,
@@ -39,7 +37,6 @@ const searchMembersForVisitor = async (req, res) => {
       "fullName unitNo role relation primaryPhone memberType memberStatus"
     );
 
-    // Unit ke hisaab se group karo
     const grouped = {};
     allMembers.forEach((m) => {
       if (!grouped[m.unitNo]) grouped[m.unitNo] = [];
@@ -48,7 +45,7 @@ const searchMembersForVisitor = async (req, res) => {
 
     const results = Object.entries(grouped).map(([unitNo, members]) => ({
       unitNo,
-      buildingCode, // ✅ yeh line add — frontend selectUnit isi ko use karta
+      buildingCode,
       members,
     }));
 

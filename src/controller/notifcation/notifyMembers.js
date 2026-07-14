@@ -262,3 +262,78 @@ export async function notifyVisitorToMember({
 
   return notification;
 }
+
+// ─── 6. Member → Staff (guest pre-approve request) ─────────────────────────
+export async function notifyMemberToStaff({
+  io,
+  buildingCode,
+  buildingId,
+  type = "GUEST_PRE_APPROVED",
+  title,
+  message,
+  referenceId = null,
+  referenceModel = "Visitor",
+  data = {},
+}) {
+  const notification = await createAndSend({
+    io,
+    buildingCode,
+    buildingId,
+    type,
+    audience: "STAFF",
+    title,
+    message,
+    referenceId,
+    referenceModel,
+    data,
+  });
+
+  // ✅ guard ke live "PreApprovedDetail" screen ke liye alag raw event —
+  // taki list turant update ho, sirf generic notification bell nahi
+  io.to(`guard_${buildingCode}`).emit("new_visitor_request", {
+    ...data,
+    source: "socket",
+  });
+
+  return notification;
+}
+
+// ─── 7. Staff → Specific Member (guest approve/reject decision) ───────────
+export async function notifyStaffToMember({
+  io,
+  buildingCode,
+  buildingId,
+  memberId,
+  memberFcmToken,
+  type, // "GUEST_APPROVED" | "GUEST_REJECTED"
+  title,
+  message,
+  data = {},
+  referenceId = null,
+}) {
+  const notification = await Notification.create({
+    buildingCode,
+    buildingId,
+    type,
+    audience: "SPECIFIC_MEMBER",
+    receiverId: memberId,
+    receiverModel: "MEMBER",
+    title,
+    message,
+    data,
+    referenceId,
+    referenceModel: "Visitor",
+  });
+
+  io.to(`member_${memberId}`).emit("guest_status_updated", {
+    title,
+    message,
+    data, // { visitorId, status, approvedAt/rejectedAt, guardName, name, purpose }
+  });
+
+  if (memberFcmToken) {
+    await sendFCM([memberFcmToken], title, message, { ...data, type });
+  }
+
+  return notification;
+}

@@ -27,6 +27,7 @@ import staffRouter from "./src/routes/staffRouter.js";
 import complaintRouter from "./src/routes/complaintRouter.js";
 import notifcationRouter from "./src/routes/notifcationRouter.js";
 import visitorRouter from "./src/routes/visitorRouter.js";
+import guestRouter from "./src/routes/guestRouter.js";
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 connectDB();
@@ -92,6 +93,13 @@ io.on("connection", (socket) => {
     console.log(`Guard ${guardId} joined room`);
   });
 
+  // ✅ NEW: guard apne building room me bhi join kare, taki
+  // createPreApproved.js ka guard_${buildingCode} emit usko mile
+  socket.on("join_guard_building", (buildingCode) => {
+    socket.join(`guard_${buildingCode}`);
+    console.log(`Guard joined building room: guard_${buildingCode}`);
+  });
+
   socket.on("join_superadmin", () => {
     socket.join("superadmin");
   });
@@ -113,6 +121,7 @@ app.use("/", staffRouter);
 app.use("/", complaintRouter);
 app.use("/", notifcationRouter);
 app.use("/", visitorRouter);
+app.use("/", guestRouter);
 const PORT = process.env.PORT || 1098;
 
 // app.listen → server.listen

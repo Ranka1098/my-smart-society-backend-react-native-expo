@@ -54,15 +54,15 @@ const finalizeEntry = async (req, res) => {
 
     await visitor.save();
 
-    // ── guard cancel → sab notified members ko notify karo ──
-    if (verificationMethod === "Denied") {
-      const io = req.app.get("io");
-      (visitor.notifiedMembers || []).forEach((memberId) => {
-        io.to(`member_${memberId}`).emit("visitor_cancelled_by_guard", {
-          visitorId: visitor._id,
-        });
-      });
-    }
+    const io = req.app.get("io");
+    (visitor.notifiedMembers || []).forEach((memberId) => {
+      io.to(`member_${memberId}`).emit(
+        verificationMethod === "Denied"
+          ? "visitor_cancelled_by_guard"
+          : "visitor_decided",
+        { visitorId: visitor._id, status: visitor.status }
+      );
+    });
 
     return res.status(200).json({
       success: true,

@@ -5,7 +5,8 @@ const notificationSchema = new mongoose.Schema(
     buildingId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Building",
-      required: true,
+      required: false, // ✅ FIX: pehle required: true tha, ab optional — kyunki member/staff ke paas sirf buildingCode hai, buildingId nahi bhejte
+      default: null,
     },
 
     buildingCode: {
@@ -33,13 +34,16 @@ const notificationSchema = new mongoose.Schema(
         "SUBSCRIPTION_EXPIRED",
         "SUBSCRIPTION_EXPIRING",
         "VISITOR_ARRIVED",
+        "GUEST_PRE_APPROVED",
+        "GUEST_APPROVED",
+        "GUEST_REJECTED",
       ],
       required: true,
     },
 
     audience: {
       type: String,
-      enum: ["SUPERADMIN", "MEMBERS", "STAFF", "ADMIN","SPECIFIC_MEMBER"],
+      enum: ["SUPERADMIN", "MEMBERS", "STAFF", "ADMIN", "SPECIFIC_MEMBER"],
       required: true,
     },
 
@@ -63,7 +67,6 @@ const notificationSchema = new mongoose.Schema(
     data: { type: Object, default: {} },
     clickUrl: { type: String, default: null },
 
-    // ✅ read tracking same doc mein
     readBy: [
       {
         userId: { type: mongoose.Schema.Types.ObjectId, required: true },
