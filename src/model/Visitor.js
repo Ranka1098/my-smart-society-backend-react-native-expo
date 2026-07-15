@@ -18,7 +18,7 @@ const visitorSchema = new mongoose.Schema(
     flatNo: { type: String, required: true, trim: true },
     notifiedMembers: [{ type: ObjectId, ref: "Member" }],
     respondedBy: { type: ObjectId, ref: "Member" },
-    guardId: { type: ObjectId, ref: "Staff"},
+    guardId: { type: ObjectId, ref: "Staff" },
     status: {
       type: String,
       enum: [
@@ -36,7 +36,7 @@ const visitorSchema = new mongoose.Schema(
     rejectionReason: { type: String },
     verificationMethod: {
       type: String,
-      enum: ["FCM", "ManualCall", "ForcedEntry", "Denied"],
+      enum: ["FCM", "ManualCall", "ForcedEntry", "Denied", "OTP"],
     },
     forcedEntryReason: { type: String },
     notificationSentAt: { type: Date },
@@ -45,6 +45,9 @@ const visitorSchema = new mongoose.Schema(
     exitTime: { type: Date },
     exitPhotoUrl: { type: String },
     isEmergencyExit: { type: Boolean, default: false },
+    // model/Visitor.js — existing schema me ye fields add karo
+    otp: { type: String },
+    otpVerifiedAt: { type: Date },
   },
   { timestamps: true }
 );

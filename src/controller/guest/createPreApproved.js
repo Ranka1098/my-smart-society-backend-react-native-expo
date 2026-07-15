@@ -1,5 +1,5 @@
 import Visitor from "../../model/Visitor.js";
-import Member from "../../model/member.js"; // apna actual path check karo
+import Member from "../../model/member.js";
 import { notifyMemberToStaff } from "../notifcation/notifyMembers.js";
 
 const createPreApproved = async (req, res) => {
@@ -15,8 +15,7 @@ const createPreApproved = async (req, res) => {
       timeSlot,
     } = req.body;
 
-    // ✅ DEBUG — konsa field aaya, konsa nahi, ye console me dikhega
-    console.log("createPreApproved body:", req.body);
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
 
     const visitor = await Visitor.create({
       buildingCode,
@@ -26,13 +25,27 @@ const createPreApproved = async (req, res) => {
       purpose,
       respondedBy: memberId,
       status: "Pending",
-      verificationMethod: "ManualCall",
+      verificationMethod: "OTP",
       notificationSentAt: new Date(),
+      otp,
     });
 
     const member = await Member.findById(memberId).select("name");
-
     const io = req.app.get("io");
+
+    // ✅ NEW: guard ke PreApprovedDetail me turant dikhe
+    io.to(`guard_${buildingCode}`).emit("new_visitor_request", {
+      _id: visitor._id,
+      name: visitor.name,
+      mobile: visitor.mobile,
+      purpose: visitor.purpose,
+      flatNo: visitor.flatNo,
+      verificationMethod: visitor.verificationMethod, // ✅ OTP button ke liye zaroori
+      timeSlot,
+      respondedBy: { _id: memberId, name: member?.name },
+      source: "socket",
+    });
+
     await notifyMemberToStaff({
       io,
       buildingCode,

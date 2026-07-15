@@ -1,33 +1,59 @@
 import Visitor from "../../model/Visitor.js";
-import Staff from "../../model/staff.js"; // apna actual path check karo
+import Staff from "../../model/staff.js";
 import Member from "../../model/member.js";
 import { notifyStaffToMember } from "../notifcation/notifyMembers.js";
 
 const allowEntry = async (req, res) => {
   try {
     const { id } = req.params;
-    const guardId = req.user?._id; // auth middleware se
+    const { otp } = req.body; // ✅ guard se aayega
+    const guardId = req.user?._id;
 
-    const visitor = await Visitor.findByIdAndUpdate(
-      id,
-      {
-        status: "Approved",
-        guardId,
-        approvedAt: new Date(),
-        entryTime: new Date(),
-      },
-      { new: true }
-    );
+    const visitor = await Visitor.findById(id);
     if (!visitor)
       return res.status(404).json({ success: false, message: "Nahi mila" });
+    if (visitor.status !== "Pending")
+      return res
+        .status(409)
+        .json({ success: false, message: "Already actioned" });
 
-    // ✅ member ko wapas batao — kab approve hua, kis guard ne
+    // ✅ OTP verify — sirf jab verificationMethod OTP ho
+    if (visitor.verificationMethod === "OTP") {
+      if (!otp || visitor.otp !== otp) {
+        return res
+          .status(403)
+          .json({ success: false, message: "OTP galat hai" });
+      }
+    }
+
+    visitor.status = "Approved";
+    visitor.guardId = guardId;
+    visitor.approvedAt = new Date();
+    visitor.entryTime = new Date();
+    visitor.otpVerifiedAt = new Date();
+    visitor.otp = undefined; // ✅ consume
+    await visitor.save();
+
     const guard = await Staff.findById(guardId).select("name");
     const member = await Member.findById(visitor.respondedBy).select(
       "fcmToken"
     );
-
     const io = req.app.get("io");
+
+    // allowEntry.js me visitor.save() ke baad
+    io.to(`guard_${visitor.buildingCode}`).emit(
+      "visitor_removed_from_preapproved",
+      {
+        visitorId: visitor._id,
+      }
+    );
+
+    // ✅ SOCKET: member ko turant batao guest allow ho gaya — GuestList se pending hata do
+    io.to(`member_${visitor.respondedBy}`).emit("visitor_status_update", {
+      visitorId: visitor._id,
+      status: "Approved",
+    });
+
     await notifyStaffToMember({
       io,
       buildingCode: visitor.buildingCode,
