@@ -46,4 +46,6 @@ const noticeSchema = new mongoose.Schema(
 // Optional: Index for faster queries by buildingCode and active notices
 noticeSchema.index({ buildingCode: 1, isActive: 1 });
 
-export default mongoose.model("Notice", noticeSchema);
+// export default mongoose.model("Notice", noticeSchema);
+// ✅ sahi — pehle se compiled ho to wahi use karo
+export default mongoose.models.Notice || mongoose.model("Notice", noticeSchema);

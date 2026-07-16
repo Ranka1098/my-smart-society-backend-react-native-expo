@@ -28,6 +28,7 @@ import complaintRouter from "./src/routes/complaintRouter.js";
 import notifcationRouter from "./src/routes/notifcationRouter.js";
 import visitorRouter from "./src/routes/visitorRouter.js";
 import guestRouter from "./src/routes/guestRouter.js";
+import superAdminRouter from "./src/routes/superAdminRouter.js";
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 connectDB();
@@ -122,6 +123,7 @@ app.use("/", complaintRouter);
 app.use("/", notifcationRouter);
 app.use("/", visitorRouter);
 app.use("/", guestRouter);
+app.use("/", superAdminRouter);
 const PORT = process.env.PORT || 1098;
 
 // app.listen → server.listen

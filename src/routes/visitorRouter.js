@@ -9,7 +9,7 @@ import getVisitorLog from "../controller/visitor/getVisitorLog.js";
 import upload from "../cloudinary/multerConfig.js";
 import emergencyExit from "../controller/visitor/emergencyExit.js";
 import memberPendingVisitor from "../controller/visitor/memberPendingVisitor.js";
-
+import getGuardDashboard from "../controller/visitor/getGuardDashboard.js";
 const visitorRouter = express.Router();
 
 // Guard routes
@@ -30,6 +30,7 @@ visitorRouter.post(
 visitorRouter.post("/finalizeEntry", staffAuth, finalizeEntry);
 visitorRouter.patch("/visitor/:id/exit", staffAuth, logExit);
 visitorRouter.get("/visitor/log", staffAuth, getVisitorLog);
+visitorRouter.get("/getGuardDashboard", staffAuth, getGuardDashboard);
 
 // Member routes
 visitorRouter.post("/memberApproveOrDeny", memberAuth, memberApproveOrDeny);

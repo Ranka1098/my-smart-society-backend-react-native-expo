@@ -11,6 +11,7 @@ import getAllStaff from "../controller/staff/getAllStaff.js";
 import approveStaff from "../controller/staff/approveStaff.js";
 import rejectStaff from "../controller/staff/rejectStaff.js";
 import adminAuth from "../middleware/adminAuth.js";
+import memberAuth from "../middleware/memberAuth.js";
 
 import multer from "multer";
 import staffLogin from "../controller/staff/staffLogin.js";
@@ -41,6 +42,7 @@ StaffRouter.post("/staffLogin", staffLogin);
 // ── Admin Protected ───────────────────────────────────────
 StaffRouter.get("/admin/pendingStaff", adminAuth, getPendingStaff);
 StaffRouter.get("/admin/allStaff", adminAuth, getAllStaff);
+StaffRouter.get("/member/allStaff", memberAuth, getAllStaff);
 StaffRouter.patch("/admin/approveStaff/:staffId", adminAuth, approveStaff);
 StaffRouter.put("/admin/rejectStaff/:staffId", adminAuth, rejectStaff);
 

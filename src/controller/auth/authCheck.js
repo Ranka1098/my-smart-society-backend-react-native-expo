@@ -1,6 +1,7 @@
 import adminModel from "../../model/admin.js";
 import memberModel from "../../model/member.js";
-import staffModel from "../../model/staff.js"; // ← add karo
+import staffModel from "../../model/staff.js";
+import superAdminModel from "../../model/superAdmin.js"; // ← add karo
 
 const authCheck = async (req, res) => {
   try {
@@ -13,8 +14,10 @@ const authCheck = async (req, res) => {
     } else if (role === "member") {
       user = await memberModel.findById(id).select("-password");
     } else if (role === "security") {
-      // ← add karo
       user = await staffModel.findById(id).select("-password");
+    } else if (role === "superadmin") {
+      // ← add karo
+      user = await superAdminModel.findById(id).select("-password -secretKey");
     } else {
       return res
         .status(400)
