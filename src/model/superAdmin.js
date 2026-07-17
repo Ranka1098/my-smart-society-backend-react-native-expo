@@ -14,6 +14,10 @@ const superAdminSchema = new mongoose.Schema(
     otpExpiry: { type: Date, default: null },
 
     isActive: { type: Boolean, default: true },
+    fcmToken: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

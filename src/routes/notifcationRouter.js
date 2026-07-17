@@ -2,6 +2,7 @@ import express from "express";
 import adminAuth from "../middleware/adminAuth.js";
 import memberAuth from "../middleware/memberAuth.js";
 import staffAuth from "../middleware/staffAuth.js";
+import superAdminAuth from "../middleware/superAdminAuth.js";
 
 // ── ADMIN ──
 import adminNotifications from "../controller/notifcation/admin_notifcation/adminNotifications.js";
@@ -17,6 +18,11 @@ import markSingleMemberNotificationRead from "../controller/notifcation/member_n
 import staffNotifications from "../controller/notifcation/staff_notifcation/staffNotifications.js";
 import getStaffUnreadNotificationCount from "../controller/notifcation/staff_notifcation/getStaffUnreadNotificationCount.js";
 import markSingleStaffNotificationRead from "../controller/notifcation/staff_notifcation/markSingleStaffNotificationRead.js";
+
+//super admin
+import superAdminNotifications from "../controller/notifcation/superAdmin_notification/superAdminNotifications.js";
+import getSuperAdminUnreadNotificationCount from "../controller/notifcation/superAdmin_notification/getSuperAdminUnreadNotificationCount.js";
+import markSingleSuperAdminNotificationRead from "../controller/notifcation/superAdmin_notification/markSingleSuperAdminNotificationRead.js";
 
 const notifcationRouter = express.Router();
 
@@ -56,6 +62,23 @@ notifcationRouter.patch(
   "/staff/notifications/:id/read",
   staffAuth,
   markSingleStaffNotificationRead
+);
+
+// superadmin
+notifcationRouter.get(
+  "/superAdmin/notifications",
+  superAdminAuth,
+  superAdminNotifications
+);
+notifcationRouter.get(
+  "/superAdmin/notifications/unread-count",
+  superAdminAuth,
+  getSuperAdminUnreadNotificationCount
+);
+notifcationRouter.patch(
+  "/superAdmin/notifications/:id/read",
+  superAdminAuth,
+  markSingleSuperAdminNotificationRead
 );
 
 export default notifcationRouter;

@@ -45,11 +45,7 @@ const superAdminLoginStep1 = async (req, res) => {
     admin.otpExpiry = Date.now() + 5 * 60 * 1000; // 5 min
     await admin.save();
 
-    await sendEmailOtp(
-      admin.email,
-      "Super Admin Login OTP",
-      `Your OTP is: ${otp}`
-    );
+    await sendEmailOtp(admin.email, otp, "verify");
 
     return res.json({ success: true, message: "OTP sent to email" });
   } catch (err) {
