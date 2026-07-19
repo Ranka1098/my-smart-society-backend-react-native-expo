@@ -4,6 +4,7 @@ import Notification from "../../model/notification.js";
 import Member from "../../model/member.js";
 import Admin from "../../model/admin.js";
 import Staff from "../../model/staff.js";
+import SuperAdmin from "../../model/superAdmin.js";
 import { sendFCM } from "./sendFcmNotification.js";
 
 async function createAndSend({
@@ -78,8 +79,7 @@ async function createAndSend({
       data,
     });
   } else if (audience === "SUPERADMIN") {
-    const superadmin = await Admin.findOne({
-      role: "SUPERADMIN",
+    const superadmin = await SuperAdmin.findOne({
       fcmToken: { $ne: null },
     }).select("fcmToken");
     if (superadmin?.fcmToken) tokens = [superadmin.fcmToken];

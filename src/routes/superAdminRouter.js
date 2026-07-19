@@ -11,6 +11,7 @@ import getActiveBuildings from "../controller/superAdmin/building/getActiveBuild
 import getBlockedBuildings from "../controller/superAdmin/building/getBlockedBuildings.js";
 import getExpiredBuildings from "../controller/superAdmin/building/getExpiredBuildings.js";
 import getSuperAdminDashboard from "../controller/superAdmin/building/getSuperAdminDashboard.js";
+import getBuildingFullDetail from "../controller/superAdmin/building/getBuildingFullDetail.js";
 const superAdminRouter = express.Router();
 
 superAdminRouter.post("/superAdminLoginStep1", superAdminLoginStep1);
@@ -18,6 +19,7 @@ superAdminRouter.post("/superAdminLoginStep2", superAdminLoginStep2);
 superAdminRouter.post("/superAdminResendOtp", superAdminResendOtp);
 superAdminRouter.post("/superAdminLogout", superAdminAuth, superAdminLogout);
 superAdminRouter.get("/getSuperAdminDashboard", superAdminAuth, getSuperAdminDashboard);
+superAdminRouter.get("/getBuildingFullDetail/:id", superAdminAuth, getBuildingFullDetail);
 
 superAdminRouter.get(
   "/superAdmin/buildings/all",

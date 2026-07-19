@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import adminModel from "../../../model/admin.js";
 import buildingModel from "../../../model/building.js";
 import sendBuildingCode from "../../../utils/sendBuildingCode.js";
-
+import { notifyAdminToSuperadmin } from "../../../controller/notifcation/notifyMembers.js";
 // ==============================
 // 🔹 Generate Unique Building Code
 // ==============================
@@ -139,6 +139,18 @@ const verifyAdminOtp = async (req, res) => {
     // 📧 SEND BUILDING CODE EMAIL (NON BLOCKING)
     // =========================
     sendBuildingCode(admin.email, buildingCode).catch(() => {});
+
+    // =========================
+    // 🔔 NOTIFY SUPERADMIN (NON BLOCKING)
+    // =========================
+    notifyAdminToSuperadmin({
+      io: req.app.get("io"),
+      buildingCode,
+      buildingId: buildingDoc._id,
+      title: "New Building Registered",
+      message: `${admin.buildingName} (${buildingCode}) onboarded successfully.`,
+      data: { buildingCode, buildingId: buildingDoc._id.toString() },
+    }).catch((e) => console.log("Notify superadmin failed:", e.message));
 
     return res.status(200).json({
       success: true,

@@ -87,6 +87,19 @@ const buildingSchema = new mongoose.Schema(
         message: "Subscription expiry must be after start date",
       },
     },
+    subscriptionHistory: [
+      {
+        subscriptionType: { type: String, enum: ["trial", "monthly"] },
+        subscriptionStartDate: Date,
+        subscriptionExpiry: Date,
+        subscriptionStatus: {
+          type: String,
+          enum: ["active", "expired", "blocked"],
+        },
+        paymentStatus: { type: String, enum: ["pending", "paid"] },
+        changedAt: { type: Date, default: Date.now },
+      },
+    ],
 
     subscriptionStatus: {
       type: String,

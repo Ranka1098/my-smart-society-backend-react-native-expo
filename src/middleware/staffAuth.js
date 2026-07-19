@@ -28,6 +28,7 @@ const staffAuth = async (req, res, next) => {
     req.buildingCode = decoded.buildingCode;
     next();
   } catch (error) {
+    console.log("[STAFF AUTH] verify failed:", error.message); // temp debug
     return res
       .status(401)
       .json({ success: false, message: "Invalid or expired token" });

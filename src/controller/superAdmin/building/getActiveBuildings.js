@@ -1,11 +1,9 @@
+// controller/superadmin/getActiveBuildings.js
 import Building from "../../../model/building.js";
 
 const getActiveBuildings = async (req, res) => {
   try {
-    const buildings = await Building.find(
-      { subscriptionStatus: "active" },
-      "buildingCode buildingName chairmanName chairmanPhone totalFlats totalShops subscriptionType subscriptionStatus subscriptionExpiry paymentStatus registeredAt"
-    ).sort({ registeredAt: -1 });
+    const buildings = await Building.find({ subscriptionStatus: "active" });
 
     return res.status(200).json({ success: true, buildings });
   } catch (error) {

@@ -15,6 +15,7 @@ import memberAuth from "../middleware/memberAuth.js";
 
 import multer from "multer";
 import staffLogin from "../controller/staff/staffLogin.js";
+import staffLogout from "../controller/staff/staffLogout.js"
 import searchMembersForVisitor from "../controller/staff/searchMembersForVisitor.js";
 import staffAuth from "../middleware/staffAuth.js";
 
@@ -38,6 +39,7 @@ StaffRouter.post(
 StaffRouter.post("/verifyStaffOtp", verifyStaffOtp);
 StaffRouter.post("/resendStaffOtp", resendStaffOtp);
 StaffRouter.post("/staffLogin", staffLogin);
+StaffRouter.post("/staffLogout", staffAuth, staffLogout);
 
 // ── Admin Protected ───────────────────────────────────────
 StaffRouter.get("/admin/pendingStaff", adminAuth, getPendingStaff);
