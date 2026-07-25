@@ -1,5 +1,5 @@
 import Visitor from "../../model/Visitor.js";
-import Member from "../../model/Member.js";
+import Member from "../../model/member.js";
 import { sendFCM } from "../notifcation/sendFcmNotification.js";
 import sharp from "sharp";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
