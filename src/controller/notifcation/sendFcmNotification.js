@@ -9,13 +9,24 @@ export const sendFCM = async (tokens, title, body, data = {}) => {
     const startTime = Date.now();
     const result = await getMessaging().sendEachForMulticast({
       tokens,
+      notification: {
+        title,
+        body,
+      },
       data: { title, body, ...stringData },
       android: {
-        priority: "high", // ✅ bas itna, koi notification sub-key nahi
+        priority: "high",
+        notification: {
+          channelId: "default_sound",
+          sound: "default",
+        },
       },
       apns: {
         payload: {
-          aps: { "content-available": 1, sound: "default" }, // silent data push, badge alag se nahi
+          aps: {
+            alert: { title, body },
+            sound: "default",
+          },
         },
       },
     });
