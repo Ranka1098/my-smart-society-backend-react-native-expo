@@ -1,5 +1,5 @@
 import Visitor from "../../model/Visitor.js";
-import Notice from "../../model/Notice.js"; // apna actual notice model
+import Notice from "../../model/notice.js"; // apna actual notice model
 
 const getGuardDashboard = async (req, res) => {
   try {
