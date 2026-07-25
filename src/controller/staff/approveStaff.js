@@ -1,4 +1,4 @@
-import StaffModel from "../../model/Staff.js";
+import StaffModel from "../../model/staff.js";
 import { notifyAllMembers } from "../notifcation/notifyMembers.js";
 
 const approveStaff = async (req, res) => {
