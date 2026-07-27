@@ -81,7 +81,10 @@ const createExpense = async (req, res) => {
       "[SOCIETY_EXPENSE] Notify done for expenseId:",
       expense._id.toString()
     );
-
+    
+    io.to(`admin_${buildingCode}`).emit("dashboard_update", {
+      type: "EXPENSE_ADDED",
+    });
     return res.status(201).json({
       success: true,
       message: "Expense created successfully",
