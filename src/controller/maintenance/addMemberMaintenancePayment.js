@@ -112,6 +112,8 @@ const addMemberMaintenancePayment = async (req, res) => {
       });
     }
 
+   io.to(`admin_${buildingCode}`).emit("dashboard_update", { type: "MAINTENANCE_PAID" });
+
     return res.json({
       success: true,
       paymentIds,
