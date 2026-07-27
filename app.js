@@ -86,6 +86,11 @@ io.on("connection", (socket) => {
     console.log(`✅ Member joined room: member_${memberId}`); // ADD
     socket.join(`member_${memberId}`);
   });
+
+    socket.on("join_member_building", (buildingCode) => {
+    socket.join(`members_${buildingCode}`);
+    console.log(`✅ Member joined building room: members_${buildingCode}`);
+  });
   // Rooms — sabse important part
   // Socket.IO me "room" = ek group jisme multiple sockets ko daal sakte ho, phir us pure group ko ek saath message bhej sakte ho.
 
