@@ -15,14 +15,14 @@ import memberAuth from "../middleware/memberAuth.js";
 
 import multer from "multer";
 import staffLogin from "../controller/staff/staffLogin.js";
-import staffLogout from "../controller/staff/staffLogout.js"
+import staffLogout from "../controller/staff/staffLogout.js";
 import searchMembersForVisitor from "../controller/staff/searchMembersForVisitor.js";
 import staffAuth from "../middleware/staffAuth.js";
 
 // ✅ NEW — FCM controllers add
 import staffSaveFcmToken from "../fcmToken/staffSaveFcmToken.js"; // apna sahi path daalo
 import staffRemoveFcmToken from "../fcmToken/staffRemoveFcmToken.js"; // apna sahi path daalo
-
+import getStaffProfile from "../controller/staff/getStaffProfile.js";
 const upload = multer({ storage: multer.memoryStorage() });
 
 const StaffRouter = express.Router();
@@ -36,6 +36,7 @@ StaffRouter.post(
   ]),
   staffRegister
 );
+StaffRouter.get("/getStaffProfile", staffAuth, getStaffProfile);
 StaffRouter.post("/verifyStaffOtp", verifyStaffOtp);
 StaffRouter.post("/resendStaffOtp", resendStaffOtp);
 StaffRouter.post("/staffLogin", staffLogin);

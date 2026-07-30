@@ -29,6 +29,7 @@ import notifcationRouter from "./src/routes/notifcationRouter.js";
 import visitorRouter from "./src/routes/visitorRouter.js";
 import guestRouter from "./src/routes/guestRouter.js";
 import superAdminRouter from "./src/routes/superAdminRouter.js";
+import workerRouter from "./src/routes/workerRouter.js";
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 connectDB();
@@ -87,7 +88,7 @@ io.on("connection", (socket) => {
     socket.join(`member_${memberId}`);
   });
 
-    socket.on("join_member_building", (buildingCode) => {
+  socket.on("join_member_building", (buildingCode) => {
     socket.join(`members_${buildingCode}`);
     console.log(`✅ Member joined building room: members_${buildingCode}`);
   });
@@ -129,6 +130,7 @@ app.use("/", notifcationRouter);
 app.use("/", visitorRouter);
 app.use("/", guestRouter);
 app.use("/", superAdminRouter);
+app.use("/", workerRouter);
 const PORT = process.env.PORT || 1098;
 
 // app.listen → server.listen

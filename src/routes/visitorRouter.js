@@ -36,4 +36,7 @@ visitorRouter.get("/getGuardDashboard", staffAuth, getGuardDashboard);
 visitorRouter.post("/memberApproveOrDeny", memberAuth, memberApproveOrDeny);
 visitorRouter.get("/memberPendingVisitor", memberAuth, memberPendingVisitor);
 
+// society member entry
+// visitorRouter.post("/societyMemberEntry", staffAuth, upload.single("photo"), societyMemberEntry);
+
 export default visitorRouter;

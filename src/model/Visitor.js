@@ -48,6 +48,33 @@ const visitorSchema = new mongoose.Schema(
     // model/Visitor.js — existing schema me ye fields add karo
     otp: { type: String },
     otpVerifiedAt: { type: Date },
+    purpose: {
+      type: String,
+      enum: [
+        "Guest",
+        "Maid",
+        "Cook",
+        "Driver",
+        "Cleaner",
+        "Gardener",
+        "Security",
+        "Delivery",
+        "Cab",
+        "Other",
+      ],
+      required: true,
+    },
+    verificationMethod: {
+      type: String,
+      enum: [
+        "FCM",
+        "ManualCall",
+        "ForcedEntry",
+        "Denied",
+        "OTP",
+        "PreApprovedWorker",
+      ],
+    },
   },
   { timestamps: true }
 );

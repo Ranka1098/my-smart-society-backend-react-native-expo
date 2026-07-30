@@ -126,7 +126,7 @@ const staffLogin = async (req, res) => {
         buildingCode,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "24h" }
     );
 
     return res.status(200).json({
