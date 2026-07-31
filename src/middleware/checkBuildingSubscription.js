@@ -19,6 +19,14 @@ const checkBuildingSubscription = async (req, res, next) => {
         message: "Building blocked",
       });
 
+    if (!building.isActive) {
+      return res.status(403).json({
+        success: false,
+        code: "BUILDING_INACTIVE",
+        message: "Building is inactive. Contact support.",
+      });
+    }
+
     if (
       building.subscriptionStatus === "expired" ||
       (building.subscriptionExpiry && building.subscriptionExpiry < new Date())

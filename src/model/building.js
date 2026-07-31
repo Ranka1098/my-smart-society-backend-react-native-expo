@@ -70,6 +70,7 @@ const buildingSchema = new mongoose.Schema(
 
     subscriptionStartDate: {
       type: Date,
+      default: Date.now, // ✅ ADD — controller bhool bhi jaye to bhi set ho jayega
       validate: {
         validator: (v) => !v || v <= new Date(),
         message: "Subscription start date cannot be in the future",
@@ -78,6 +79,11 @@ const buildingSchema = new mongoose.Schema(
 
     subscriptionExpiry: {
       type: Date,
+      default: function () {
+        const d = new Date(this.subscriptionStartDate || Date.now());
+        d.setMonth(d.getMonth() + 1); // ✅ 1 month trial default
+        return d;
+      },
       validate: {
         validator: function (v) {
           return (

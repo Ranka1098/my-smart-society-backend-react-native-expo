@@ -40,7 +40,12 @@ const getDashboardStats = async (req, res) => {
     // ✅ Parallel fetch
     const [members, payments, expenses, monthRecord] = await Promise.all([
       memberModel
-        .find({ buildingCode, approvalStatus: "Approved", isVerified: true })
+        .find({
+          buildingCode,
+          approvalStatus: "Approved",
+          isVerified: true,
+          role: "primary",
+        })
         .lean(),
       maintenanceModel.find({ buildingCode, month: formattedMonth }).lean(),
       expenseModel.find({ buildingCode }).lean(),

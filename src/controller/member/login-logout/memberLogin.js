@@ -56,12 +56,13 @@ const memberLogin = async (req, res) => {
       });
     }
 
-    if (!building.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: "Building is inactive",
-      });
-    }
+   if (!building.isActive) {
+  return res.status(403).json({
+    success: false,
+    code: "BUILDING_INACTIVE",   // ✅ ADD
+    message: "Building is inactive. Contact support.",
+  });
+}
 
     if (
       building.subscriptionStatus === "expired" ||

@@ -96,6 +96,10 @@ const verifyAdminOtp = async (req, res) => {
     // =========================
     // 🏢 CREATE BUILDING
     // =========================
+    const now = new Date();
+    const trialExpiry = new Date(now);
+    trialExpiry.setMonth(trialExpiry.getMonth() + 1);
+
     const [buildingDoc] = await buildingModel.create(
       [
         {
@@ -107,6 +111,10 @@ const verifyAdminOtp = async (req, res) => {
           totalFlats: admin.pendingTotalFlats || 0,
           totalShops: admin.pendingTotalShops || 0,
           isActive: true,
+          subscriptionType: "trial",
+          subscriptionStartDate: now,
+          subscriptionExpiry: trialExpiry,
+          subscriptionStatus: "active",
         },
       ],
       { session }
