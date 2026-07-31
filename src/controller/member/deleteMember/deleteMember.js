@@ -16,18 +16,36 @@ const deleteMember = async (req, res) => {
       return res.status(404).json({ message: "Member not found" });
     }
 
-    // STEP 1: Mark all maintenance records as memberDeleted
+    // ✅ AGAR PRIMARY HAI → uske family members bhi nikal lo
+    let familyIds = [];
+    if (member.role === "primary") {
+      const familyMembers = await Member.find({
+        buildingCode,
+        unitNo: member.unitNo,
+        memberType: member.memberType,
+        role: "family",
+      }).select("_id");
+
+      familyIds = familyMembers.map((f) => f._id);
+    }
+
+    const allIdsToDelete = [id, ...familyIds];
+
+    // STEP 1: Mark all maintenance records as memberDeleted (primary + family)
     await Maintenance.updateMany(
-      { memberId: id, buildingCode },
+      { memberId: { $in: allIdsToDelete }, buildingCode },
       { memberDeleted: true }
     );
 
-    // STEP 2: Delete member
-    await Member.findByIdAndDelete(id);
+    // STEP 2: Delete primary + family members
+    await Member.deleteMany({ _id: { $in: allIdsToDelete } });
 
     return res.status(200).json({
       success: true,
-      message: "Member & maintenance deleted successfully",
+      message:
+        familyIds.length > 0
+          ? `Member & ${familyIds.length} family member(s) deleted successfully`
+          : "Member & maintenance deleted successfully",
     });
   } catch (error) {
     console.error("Delete Member Error:", error);
