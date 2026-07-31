@@ -16,6 +16,8 @@ import getDashboardStats from "../controller/admin/dashbaordStat/getDashboardSta
 import member from "../model/member.js";
 import adminSaveFcmToken from "../fcmToken/adminSaveFcmToken.js";
 import adminRemoveFcmToken from "../fcmToken/adminRemoveFcmToken.js";
+
+import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
 const adminRouter = express.Router();
 
 //registration api
@@ -24,16 +26,46 @@ adminRouter.post("/verifyAdminOtp", verifyAdminOtp);
 adminRouter.post("/resendAdminOtp", resendAdminOtp);
 
 //memberReuest
-adminRouter.get("/getPendingMembers", adminAuth, getPendingMembers);
-adminRouter.patch("/approveMember/:memberId", adminAuth, approveMember);
-adminRouter.patch("/rejectMember/:memberId", adminAuth, rejectMember);
+adminRouter.get(
+  "/getPendingMembers",
+  adminAuth,
+  checkBuildingSubscription,
+  getPendingMembers
+);
+adminRouter.patch(
+  "/approveMember/:memberId",
+  adminAuth,
+  checkBuildingSubscription,
+  approveMember
+);
+adminRouter.patch(
+  "/rejectMember/:memberId",
+  adminAuth,
+  checkBuildingSubscription,
+  rejectMember
+);
 
 //profile api
-adminRouter.get("/getAdminProfile", adminAuth, getAdminProfile);
+adminRouter.get(
+  "/getAdminProfile",
+  adminAuth,
+  checkBuildingSubscription,
+  getAdminProfile
+);
 
 //member detail
-adminRouter.get("/getAllMembers", adminAuth, getAllMembers);
-adminRouter.get("/getMemberFullDetails/:id", adminAuth, getMemberFullDetails);
+adminRouter.get(
+  "/getAllMembers",
+  adminAuth,
+  checkBuildingSubscription,
+  getAllMembers
+);
+adminRouter.get(
+  "/getMemberFullDetails/:id",
+  adminAuth,
+  checkBuildingSubscription,
+  getMemberFullDetails
+);
 //login api
 adminRouter.post("/adminLogin", adminLogin);
 
@@ -41,9 +73,24 @@ adminRouter.post("/adminLogin", adminLogin);
 adminRouter.post("/adminLogout", adminAuth, adminLogout);
 
 //getDashboardStats
-adminRouter.get("/getDashboardStats", adminAuth, getDashboardStats);
+adminRouter.get(
+  "/getDashboardStats",
+  adminAuth,
+  checkBuildingSubscription,
+  getDashboardStats
+);
 
-adminRouter.post("/adminSaveFcmToken", adminAuth, adminSaveFcmToken);
-adminRouter.post("/adminRemoveFcmToken", adminAuth, adminRemoveFcmToken);
+adminRouter.post(
+  "/adminSaveFcmToken",
+  adminAuth,
+  checkBuildingSubscription,
+  adminSaveFcmToken
+);
+adminRouter.post(
+  "/adminRemoveFcmToken",
+  adminAuth,
+  checkBuildingSubscription,
+  adminRemoveFcmToken
+);
 
 export default adminRouter;

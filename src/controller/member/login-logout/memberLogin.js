@@ -42,7 +42,7 @@ const memberLogin = async (req, res) => {
     }
 
     buildingCode = buildingCode.trim();
-    email        = email.trim().toLowerCase();
+    email = email.trim().toLowerCase();
 
     // =========================
     // 3. BUILDING CHECK
@@ -60,6 +60,23 @@ const memberLogin = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "Building is inactive",
+      });
+    }
+
+    if (
+      building.subscriptionStatus === "expired" ||
+      building.subscriptionStatus === "blocked"
+    ) {
+      return res.status(403).json({
+        success: false,
+        code:
+          building.subscriptionStatus === "blocked"
+            ? "BUILDING_BLOCKED"
+            : "SUBSCRIPTION_EXPIRED",
+        message:
+          building.subscriptionStatus === "blocked"
+            ? "Building blocked. Contact support."
+            : "Building subscription expired, please renew",
       });
     }
 
@@ -131,8 +148,8 @@ const memberLogin = async (req, res) => {
     // =========================
     const token = jwt.sign(
       {
-        id:           member._id,
-        role:         "member",
+        id: member._id,
+        role: "member",
         buildingCode: member.buildingCode,
       },
       process.env.JWT_SECRET,
@@ -144,20 +161,19 @@ const memberLogin = async (req, res) => {
       message: "Login successful",
       token,
       member: {
-        _id:            member._id,
-        fullName:       member.fullName,
-        email:          member.email,
-        primaryPhone:   member.primaryPhone,
-        memberType:     member.memberType,
-        memberStatus:   member.memberStatus,
-        buildingCode:   member.buildingCode,
-        buildingName:   member.buildingName,
-        unitNo:         member.unitNo,
-        role:           member.role,
+        _id: member._id,
+        fullName: member.fullName,
+        email: member.email,
+        primaryPhone: member.primaryPhone,
+        memberType: member.memberType,
+        memberStatus: member.memberStatus,
+        buildingCode: member.buildingCode,
+        buildingName: member.buildingName,
+        unitNo: member.unitNo,
+        role: member.role,
         approvalStatus: member.approvalStatus,
       },
     });
-
   } catch (error) {
     console.log("Member Login Error:", error);
     return res.status(500).json({

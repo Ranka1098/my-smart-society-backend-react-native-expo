@@ -5,16 +5,32 @@ import createComplaint from "../controller/complaint/createComplaint.js";
 import getAdminComplaints from "../controller/complaint/getAdminComplaints.js";
 import resolveComplaint from "../controller/complaint/resolveComplaint.js";
 import getMemberComplaints from "../controller/complaint/getMemberComplaint.js";
-
+import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
 const complaintRouter = express.Router();
 
 complaintRouter.post(
   "/createComplaint",
-  memberAuth, // 🔥 MUST
+  memberAuth,
+  checkBuildingSubscription,
   createComplaint
 );
-complaintRouter.get("/getAdminComplaints", adminAuth, getAdminComplaints);
-complaintRouter.patch("/resolveComplaint/:id", adminAuth, resolveComplaint);
-complaintRouter.get("/getMemberComplaint", memberAuth, getMemberComplaints);
+complaintRouter.get(
+  "/getAdminComplaints",
+  adminAuth,
+  checkBuildingSubscription,
+  getAdminComplaints
+);
+complaintRouter.patch(
+  "/resolveComplaint/:id",
+  adminAuth,
+  checkBuildingSubscription,
+  resolveComplaint
+);
+complaintRouter.get(
+  "/getMemberComplaint",
+  memberAuth,
+  checkBuildingSubscription,
+  getMemberComplaints
+);
 
 export default complaintRouter;

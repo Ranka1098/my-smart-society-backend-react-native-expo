@@ -11,38 +11,44 @@ import singleMemberMaintenanceDetail from "../controller/maintenance/getMemberMa
 import getMemberMaintenanceHistory from "../controller/maintenance/getMemberMaintenanceHistory.js";
 import deleteMaintenanceByMonth from "../controller/maintenance/deleteMaintenanceByMonth.js";
 import sendReminder from "../controller/maintenance/sendReminder.js";
-
+import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
 const maintenanceRouter = express.Router();
 
 maintenanceRouter.post(
   "/createMaintenanceByMonth",
   adminAuth,
+  checkBuildingSubscription,
   createMaintenance
 );
 maintenanceRouter.get(
   "/getMaintenanceByMonth",
   adminAuth,
+  checkBuildingSubscription,
   getMaintenanceByMonth
 );
 maintenanceRouter.get(
   "/admin/getAllMemberMaintenancePaymentDetail",
   adminAuth,
+  checkBuildingSubscription,
   getAllMemberMaintenancePaymentDetail
 );
 maintenanceRouter.get(
   "/member/getAllMemberMaintenancePaymentDetail",
   memberAuth,
+  checkBuildingSubscription,
   getAllMemberMaintenancePaymentDetail
 );
 maintenanceRouter.post(
   "/addMemberMaintenancePayment",
-  adminAuth, // ✅ buildingCode verify here
+  adminAuth,
+  checkBuildingSubscription,
   addMemberMaintenancePayment
 );
 
 maintenanceRouter.get(
   "/getPendingMaintenance",
   adminAuth,
+  checkBuildingSubscription,
   getPendingMaintenance
 );
 
@@ -50,21 +56,29 @@ maintenanceRouter.get(
 maintenanceRouter.post(
   "/downloadMaintenaceBill",
   adminAuth,
+  checkBuildingSubscription,
   downloadMaintenaceBill
 );
 
 maintenanceRouter.delete(
   "/maintenanceDeleted/:month",
   adminAuth,
+  checkBuildingSubscription,
   deleteMaintenanceByMonth
 );
 
 maintenanceRouter.get(
   "/getMemberMaintenanceHistory",
   memberAuth,
+  checkBuildingSubscription,
   getMemberMaintenanceHistory
 );
 
-maintenanceRouter.post("/sendMaintenanceReminder", adminAuth, sendReminder);
+maintenanceRouter.post(
+  "/sendMaintenanceReminder",
+  adminAuth,
+  checkBuildingSubscription,
+  sendReminder
+);
 
 export default maintenanceRouter;

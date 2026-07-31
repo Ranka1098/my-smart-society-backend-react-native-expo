@@ -11,35 +11,55 @@ import { deleteVendor } from "../controller/vendor/deleteVendor.js";
 import deleteVendorExpense from "../controller/vendor/deleteVendorExpense.js";
 import memberAuth from "../middleware/memberAuth.js";
 import upload from "../cloudinary/multerConfig.js";
+import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
 const vendorRouter = express.Router();
 
 // ======================================================
 // VENDOR ROUTES
 // ======================================================
 
-// CREATE VENDOR
-vendorRouter.post("/createVendor", adminAuth, createVendor);
-//get all vendor list
-vendorRouter.get("/getAllVendors", adminAuth, getAllVendors);
-
-// CREATE VENDOR VENDOR_EXPENSE
+vendorRouter.post(
+  "/createVendor",
+  adminAuth,
+  checkBuildingSubscription,
+  createVendor
+);
+vendorRouter.get(
+  "/getAllVendors",
+  adminAuth,
+  checkBuildingSubscription,
+  getAllVendors
+);
 vendorRouter.post(
   "/createVendorExpense",
   upload.single("photo"),
   adminAuth,
+  checkBuildingSubscription,
   createVendorExpense
 );
-//get all vendor expense
-vendorRouter.get("/admin/getAllVendorExpense", adminAuth, getAllVendorExpenses);
+vendorRouter.get(
+  "/admin/getAllVendorExpense",
+  adminAuth,
+  checkBuildingSubscription,
+  getAllVendorExpenses
+);
 vendorRouter.get(
   "/member/getAllVendorExpense",
   memberAuth,
+  checkBuildingSubscription,
   getAllVendorExpenses
 );
-
-//delete vendor
-vendorRouter.post("/deleteVendor", adminAuth, deleteVendor);
-//delete vendor expense
-vendorRouter.post("/deleteVendorExpense", adminAuth, deleteVendorExpense);
+vendorRouter.post(
+  "/deleteVendor",
+  adminAuth,
+  checkBuildingSubscription,
+  deleteVendor
+);
+vendorRouter.post(
+  "/deleteVendorExpense",
+  adminAuth,
+  checkBuildingSubscription,
+  deleteVendorExpense
+);
 
 export default vendorRouter;

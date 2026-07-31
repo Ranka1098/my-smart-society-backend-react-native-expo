@@ -46,6 +46,25 @@ const staffLogin = async (req, res) => {
       });
     }
 
+// ✅ ADD THIS — missing check
+if (
+  building.subscriptionStatus === "expired" ||
+  building.subscriptionStatus === "blocked"
+) {
+  return res.status(403).json({
+    success: false,
+    code:
+      building.subscriptionStatus === "blocked"
+        ? "BUILDING_BLOCKED"
+        : "SUBSCRIPTION_EXPIRED",
+    message:
+      building.subscriptionStatus === "blocked"
+        ? "Building blocked. Contact support."
+        : "Building subscription expired, please renew",
+  });
+}
+
+
     // =========================
     // 3️⃣ Check Staff Exists in That Building
     // =========================

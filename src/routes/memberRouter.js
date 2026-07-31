@@ -31,6 +31,8 @@ import approveFamilyMemberRequest from "../controller/familymember/approveFamily
 import rejectFamilyMemberRequest from "../controller/familymember/rejectFamilyMemberRequest.js";
 import getFamilyMembersPendingRequest from "../controller/familymember/getFamilyMembersPendingRequest.js";
 
+import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
+
 const memberRouter = express.Router();
 
 // =========================
@@ -49,48 +51,88 @@ memberRouter.post("/memberLogout", memberLogout);
 // =========================
 // PROFILE
 // =========================
-memberRouter.get("/getMemberProfile", memberAuth, getMemberProfile);
-memberRouter.get("/member/getDashboardStats", memberAuth, getDashboardStats);
+memberRouter.get(
+  "/getMemberProfile",
+  memberAuth,
+  checkBuildingSubscription,
+  getMemberProfile
+);
+memberRouter.get(
+  "/member/getDashboardStats",
+  memberAuth,
+  checkBuildingSubscription,
+  getDashboardStats
+);
 
 // =========================
 // FCM TOKEN
 // =========================
-memberRouter.post("/memberSaveFcmToken", memberAuth, memberSaveFcmToken);
-memberRouter.post("/memberRemoveFcmToken", memberAuth, memberRemoveFcmToken);
+memberRouter.post(
+  "/memberSaveFcmToken",
+  memberAuth,
+  checkBuildingSubscription,
+  memberSaveFcmToken
+);
+memberRouter.post(
+  "/memberRemoveFcmToken",
+  memberAuth,
+  checkBuildingSubscription,
+  memberRemoveFcmToken
+);
 
 // =========================
 // FAMILY MEMBER
 // =========================
-memberRouter.post("/member/addFamilyMember", memberAuth, addFamilyMember);
+memberRouter.post(
+  "/member/addFamilyMember",
+  memberAuth,
+  checkBuildingSubscription,
+  addFamilyMember
+);
 memberRouter.post(
   "/member/verifyFamilyMemberOtp",
   memberAuth,
+  checkBuildingSubscription,
   verifyFamilyMemberOtp
 );
 memberRouter.post(
   "/member/verifyFamilyResendOtp",
   memberAuth,
+  checkBuildingSubscription,
   verifyFamilyMemberResendOtp
 );
-memberRouter.get("/member/getFamilyMembers", memberAuth, getFamilyMembers);
+memberRouter.get(
+  "/member/getFamilyMembers",
+  memberAuth,
+  checkBuildingSubscription,
+  getFamilyMembers
+);
 
 // =========================
 // ADMIN ONLY
 // =========================
-memberRouter.delete("/deleteMember/:id", adminAuth, deleteMember);
+memberRouter.delete(
+  "/deleteMember/:id",
+  adminAuth,
+  checkBuildingSubscription,
+  deleteMember
+);
 memberRouter.get(
   "/admin/pendingFamilyMembers",
   adminAuth,
+  checkBuildingSubscription,
   getFamilyMembersPendingRequest
 );
 memberRouter.patch(
   "/admin/approveFamilyMember/:id",
   adminAuth,
+  checkBuildingSubscription,
   approveFamilyMemberRequest
 );
 memberRouter.patch(
   "/admin/rejectFamilyMember/:id",
   adminAuth,
+  checkBuildingSubscription,
   rejectFamilyMemberRequest
 );
 

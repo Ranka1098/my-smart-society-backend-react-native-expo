@@ -23,6 +23,7 @@ import staffAuth from "../middleware/staffAuth.js";
 import staffSaveFcmToken from "../fcmToken/staffSaveFcmToken.js"; // apna sahi path daalo
 import staffRemoveFcmToken from "../fcmToken/staffRemoveFcmToken.js"; // apna sahi path daalo
 import getStaffProfile from "../controller/staff/getStaffProfile.js";
+import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js"
 const upload = multer({ storage: multer.memoryStorage() });
 
 const StaffRouter = express.Router();
@@ -43,16 +44,15 @@ StaffRouter.post("/staffLogin", staffLogin);
 StaffRouter.post("/staffLogout", staffAuth, staffLogout);
 
 // ── Admin Protected ───────────────────────────────────────
-StaffRouter.get("/admin/pendingStaff", adminAuth, getPendingStaff);
-StaffRouter.get("/admin/allStaff", adminAuth, getAllStaff);
-StaffRouter.get("/member/allStaff", memberAuth, getAllStaff);
-StaffRouter.patch("/admin/approveStaff/:staffId", adminAuth, approveStaff);
-StaffRouter.put("/admin/rejectStaff/:staffId", adminAuth, rejectStaff);
-
-StaffRouter.get("/staff/searchMembers", staffAuth, searchMembersForVisitor);
-
-// ✅ NEW — FCM token routes
-StaffRouter.post("/staffSaveFcmToken", staffAuth, staffSaveFcmToken);
-StaffRouter.post("/staffRemoveFcmToken", staffAuth, staffRemoveFcmToken);
+StaffRouter.get("/admin/pendingStaff", adminAuth, checkBuildingSubscription, getPendingStaff);
+StaffRouter.get("/admin/allStaff", adminAuth, checkBuildingSubscription, getAllStaff);
+StaffRouter.get("/member/allStaff", memberAuth, checkBuildingSubscription, getAllStaff);
+StaffRouter.patch("/admin/approveStaff/:staffId", adminAuth, checkBuildingSubscription, approveStaff);
+StaffRouter.put("/admin/rejectStaff/:staffId", adminAuth, checkBuildingSubscription, rejectStaff);
+StaffRouter.get("/staff/searchMembers", staffAuth, checkBuildingSubscription, searchMembersForVisitor);
+StaffRouter.post("/staffSaveFcmToken", staffAuth, checkBuildingSubscription, staffSaveFcmToken);
+StaffRouter.post("/staffRemoveFcmToken", staffAuth, checkBuildingSubscription, staffRemoveFcmToken);
 
 export default StaffRouter;
+
+

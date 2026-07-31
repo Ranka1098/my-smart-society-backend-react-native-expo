@@ -31,6 +31,8 @@ import guestRouter from "./src/routes/guestRouter.js";
 import superAdminRouter from "./src/routes/superAdminRouter.js";
 import workerRouter from "./src/routes/workerRouter.js";
 
+import checkSubscriptionExpiry from "./src/cron/checkSubscriptionExpiry.js";
+
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 connectDB();
 
@@ -44,6 +46,8 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
   },
 });
+
+checkSubscriptionExpiry(io);
 
 // io use karke jo socket banaya tha usko controler se kahi bhi use kar sakte hai
 app.set("io", io);

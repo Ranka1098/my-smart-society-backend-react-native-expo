@@ -10,33 +10,58 @@ import upload from "../cloudinary/multerConfig.js";
 import emergencyExit from "../controller/visitor/emergencyExit.js";
 import memberPendingVisitor from "../controller/visitor/memberPendingVisitor.js";
 import getGuardDashboard from "../controller/visitor/getGuardDashboard.js";
+import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
 const visitorRouter = express.Router();
 
-// Guard routes
 visitorRouter.post(
   "/createVisitorPendingRequest",
   staffAuth,
-  upload.single("photo"), // ← add this
+  checkBuildingSubscription,
+  upload.single("photo"),
   createVisitorPendingRequest
 );
-
 visitorRouter.post(
   "/visitor/emergency-exit",
   staffAuth,
+  checkBuildingSubscription,
   upload.single("photo"),
   emergencyExit
 );
-
-visitorRouter.post("/finalizeEntry", staffAuth, finalizeEntry);
-visitorRouter.patch("/visitor/:id/exit", staffAuth, logExit);
-visitorRouter.get("/visitor/log", staffAuth, getVisitorLog);
-visitorRouter.get("/getGuardDashboard", staffAuth, getGuardDashboard);
-
-// Member routes
-visitorRouter.post("/memberApproveOrDeny", memberAuth, memberApproveOrDeny);
-visitorRouter.get("/memberPendingVisitor", memberAuth, memberPendingVisitor);
-
-// society member entry
-// visitorRouter.post("/societyMemberEntry", staffAuth, upload.single("photo"), societyMemberEntry);
+visitorRouter.post(
+  "/finalizeEntry",
+  staffAuth,
+  checkBuildingSubscription,
+  finalizeEntry
+);
+visitorRouter.patch(
+  "/visitor/:id/exit",
+  staffAuth,
+  checkBuildingSubscription,
+  logExit
+);
+visitorRouter.get(
+  "/visitor/log",
+  staffAuth,
+  checkBuildingSubscription,
+  getVisitorLog
+);
+visitorRouter.get(
+  "/getGuardDashboard",
+  staffAuth,
+  checkBuildingSubscription,
+  getGuardDashboard
+);
+visitorRouter.post(
+  "/memberApproveOrDeny",
+  memberAuth,
+  checkBuildingSubscription,
+  memberApproveOrDeny
+);
+visitorRouter.get(
+  "/memberPendingVisitor",
+  memberAuth,
+  checkBuildingSubscription,
+  memberPendingVisitor
+);
 
 export default visitorRouter;

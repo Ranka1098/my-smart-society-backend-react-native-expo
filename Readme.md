@@ -1,31 +1,50 @@
-Determined user sought simplified, step-by-step checklist format
-Determined user sought simplified, step-by-step checklist format
-Simple rakhne ke liye — 6 step, order me karo:
+itorEntry", "VisitorHistory"]
+ERROR fetchLogs error: [AxiosError: Request failed with status code 401]
 
-Step 1: Visitor model fix
-purpose enum me worker categories add karo (Maid, Cook, Driver, Cleaner, Gardener, Security), verificationMethod enum me "PreApprovedWorker" add karo. Baaki schema same rahega.
+Call Stack
+construct (<native>)
+apply (<native>)
+\_construct (node_modules\@babel\runtime\helpers\construct.js)
+Wrapper (node_modules\@babel\runtime\helpers\wrapNativeSuper.js)
+construct (<native>)
+\_callSuper (node_modules\@babel\runtime\helpers\callSuper.js)
+AxiosError#constructor (node_modules\axios\dist\esm\axios.js)
+settle (node_modules\axios\dist\esm\axios.js)
+onloadend (node_modules\axios\dist\esm\axios.js)
+invoke (node_modules\react-native\src\private\webapis\dom\events\EventTarget.js)
+dispatch (node_modules\react-native\src\private\webapis\dom\events\EventTarget.js)
+INTERNAL_DISPATCH_METHOD_KEY (node_modules\react-native\src\private\webapis\dom\events\EventTarget.js)
+dispatchTrustedEvent (node_modules\react-native\src\private\webapis\dom\events\internals\EventTargetInternals.js)
+setReadyState (node_modules\react-native\Libraries\Network\XMLHttpRequest.js)
+\_\_didCompleteResponse (node_modules\react-native\Libraries\Network\XMLHttpRequest.js)
+apply (<native>)
+RCTNetworking.addListener$argument_1 (node_modules\react-native\Libraries\Network\XMLHttpRequest.js)
+apply (<native>)
+emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+apply (<native>)
+<anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+Axios#request (node_modules\axios\dist\esm\axios.js)
+throw (<native>)
+asyncGeneratorStep (node_modules\@babel\runtime\helpers\asyncToGenerator.js)
+\_throw (node_modules\@babel\runtime\helpers\asyncToGenerator.js)
+tryCallOne (address at (InternalBytecode.js:1:1180)
+anonymous (address at (InternalBytecode.js:1:1874)
 
-Step 2: WorkerProfile ke liye 2 hi API bano
+Haan bhai, sahi jagah hai.
 
-POST /worker/request-approval — pehli baar aane pe (name, mobile, category, flatNo agar FlatStaff, photo). WorkerProfile create/upsert karo status PendingApproval.
-POST /worker/approve — admin (SocietyStaff) ya member (FlatStaff) approve kare, status Approved set karo.
-Ye tera existing createVisitorPendingRequest.js ka copy hai bas Visitor ki jagah WorkerProfile save hoga. Naya file mat socho — usi pattern se likho.
+Order theek hai:
 
-Step 3: Daily entry ke liye 2 hi API bano
+Role check
+Fields check
+Building exist check
+Building active check
+Subscription check ← ye yaha hona hi chahiye
+User (admin/member) exist check
+Verify check
+Password check
+Token
 
-GET /worker/search?query= — sirf status: "Approved" wale worker return kare
-POST /worker/quick-entry — workerId lekar Visitor record bana de, photoUrl worker se copy karo (naya upload mat karo)
-Step 4: Frontend — sirf 1 naya button
-"Daily Staff Entry" — search box → name type karo → list se tap karo → seedha save (no camera, no timer, no approval wait). Baaki 3 button (Staff Approval, Staff Entry ko hata ke sirf ye rakho, New Visitor) same rahenge — Staff Approval ab sirf pehli baar wale worker ke liye use hoga.
+Kyu sahi hai: Building expired/blocked hai to user exist karta hai ya nahi, verify hai ya nahi — koi matter nahi karta. Pehle hi block kar do, DB pe extra query bhi bach gaya (admin/member lookup skip ho jata hai).
 
-Step 5: Purane "Staff Entry" (auto-approved) button hata do
-Ab zaroorat nahi — daily staff entry naya flow handle kar dega. Confusion kam hoga, module simple rahega.
-
-Step 6: Test order
-
-Naya worker → approval request bhejo → admin/member se approve karao
-Same worker ko "Daily Staff" search me dhoondo → entry save karo → photo naya upload nahi hua confirm karo (network tab dekh lo)
-Purane Visitor flow (guest, member) touch mat karo — wo already sahi hai
-Bas itna. Exit flow me kuch change nahi karna — wo already sahi hai jaisa maine bataya.
-
-Priority: Step 1-3 backend pehle karo, phir Step 4 frontend. Ek ek karke, poora backend pehle test karo Postman se, phir UI lagao.
+Ek gap hai dono file me: building.subscriptionStatus === "expired" check trial expire ka case cover nahi karta agar tumhare schema me "trial" status bhi hai aur trial khatam hone pe status update nahi hota kahi cron se. Confirm kar lena — agar subscriptionStatus cron/pre-save hook se auto-update hota hai to fine hai, warna trial-expired users login kar payenge.
