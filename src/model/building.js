@@ -57,52 +57,73 @@ const buildingSchema = new mongoose.Schema(
     },
 
     /* =========================
-       SUBSCRIPTION SYSTEM
+       SUBSCRIPTION SYSTEM (rate-based)
     ========================= */
+
+    plan: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SubscriptionPlan",
+      default: null,
+    },
+
     subscriptionType: {
       type: String,
-      enum: {
-        values: ["trial", "monthly"],
-        message: "Subscription type must be either 'trial' or 'monthly'",
-      },
+      enum: ["trial", "monthly"],
       default: "trial",
     },
 
+    lastBilledFlats: { type: Number, default: 0 },
+    lastBilledShops: { type: Number, default: 0 },
+    lastBilledAmount: { type: Number, default: 0 },
+
     subscriptionStartDate: {
       type: Date,
-      default: Date.now, // ✅ ADD — controller bhool bhi jaye to bhi set ho jayega
-      validate: {
-        validator: (v) => !v || v <= new Date(),
-        message: "Subscription start date cannot be in the future",
-      },
+      default: Date.now,
     },
 
     subscriptionExpiry: {
       type: Date,
       default: function () {
         const d = new Date(this.subscriptionStartDate || Date.now());
-        d.setMonth(d.getMonth() + 1); // ✅ 1 month trial default
+        d.setMonth(d.getMonth() + 1); // 1 month free trial default
         return d;
       },
-      validate: {
-        validator: function (v) {
-          return (
-            !v || (this.subscriptionStartDate && v > this.subscriptionStartDate)
-          );
-        },
-        message: "Subscription expiry must be after start date",
-      },
     },
+
+    // ✅ grace tracking
+    graceEndsAt: {
+      type: Date,
+      default: null, // cron sets this jab active->grace ho
+    },
+
     subscriptionHistory: [
       {
+        planCode: { type: String, default: null },
         subscriptionType: { type: String, enum: ["trial", "monthly"] },
+        billedFlats: { type: Number, default: 0 },
+        billedShops: { type: Number, default: 0 },
+        amount: { type: Number, default: 0 },
         subscriptionStartDate: Date,
         subscriptionExpiry: Date,
         subscriptionStatus: {
           type: String,
-          enum: ["active", "expired", "blocked"],
+          enum: ["active", "grace", "expired", "blocked"],
         },
         paymentStatus: { type: String, enum: ["pending", "paid"] },
+        action: { type: String, default: null },
+        transactionId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Transaction",
+          default: null,
+        },
+        changedBy: {
+          role: {
+            type: String,
+            enum: ["admin", "superadmin", "system"],
+            default: "system",
+          },
+          id: { type: mongoose.Schema.Types.ObjectId, default: null },
+        },
         changedAt: { type: Date, default: Date.now },
       },
     ],
@@ -110,33 +131,39 @@ const buildingSchema = new mongoose.Schema(
     subscriptionStatus: {
       type: String,
       enum: {
-        values: ["active", "expired", "blocked"],
-        message: "Subscription status must be active, expired, or blocked",
+        values: ["active", "grace", "expired", "blocked"],
+        message: "Invalid subscription status",
       },
       default: "active",
     },
 
-    paymentStatus: {
+    blockedAt: {
+      type: Date,
+      default: null,
+    },
+    blockedReason: {
       type: String,
-      enum: {
-        values: ["pending", "paid"],
-        message: "Payment status must be 'pending' or 'paid'",
-      },
-      default: "pending",
+      default: null,
     },
 
-    //subscription check
-    expiringNotified: {
-      type: Boolean,
-      default: false,
+    // lockLevel middleware isi ko check karega
+    lockLevel: {
+      type: String,
+      enum: ["none", "read_only", "full_lock"],
+      default: "none",
     },
-    expiredNotified: {
-      type: Boolean,
-      default: false,
+
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid"],
+      default: "paid", // trial = paid (kuch owe nahi karta)
     },
-    /* =========================
-       BUILDING STATUS
-    ========================= */
+
+    remindersSent: {
+      type: [Number], // [7, 1, 0] — kaunse din reminder bheja
+      default: [],
+    },
+
     isActive: {
       type: Boolean,
       default: true,

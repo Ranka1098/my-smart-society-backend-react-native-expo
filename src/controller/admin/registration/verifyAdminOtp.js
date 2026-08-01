@@ -7,6 +7,7 @@ import adminModel from "../../../model/admin.js";
 import buildingModel from "../../../model/building.js";
 import sendBuildingCode from "../../../utils/sendBuildingCode.js";
 import { notifyAdminToSuperadmin } from "../../../controller/notifcation/notifyMembers.js";
+import { assignFreeTrialOnRegister } from "../../superAdmin/subscription/assignFreeTrialOnRegister.js";
 // ==============================
 // 🔹 Generate Unique Building Code
 // ==============================
@@ -96,10 +97,8 @@ const verifyAdminOtp = async (req, res) => {
     // =========================
     // 🏢 CREATE BUILDING
     // =========================
-    const now = new Date();
-    const trialExpiry = new Date(now);
-    trialExpiry.setMonth(trialExpiry.getMonth() + 1);
-
+    // subscription fields yahan manually set NAHI karte — assignFreeTrialOnRegister()
+    // session commit ke baad plan/lockLevel/Transaction sab sahi se set karega
     const [buildingDoc] = await buildingModel.create(
       [
         {
@@ -111,10 +110,6 @@ const verifyAdminOtp = async (req, res) => {
           totalFlats: admin.pendingTotalFlats || 0,
           totalShops: admin.pendingTotalShops || 0,
           isActive: true,
-          subscriptionType: "trial",
-          subscriptionStartDate: now,
-          subscriptionExpiry: trialExpiry,
-          subscriptionStatus: "active",
         },
       ],
       { session }
@@ -142,6 +137,11 @@ const verifyAdminOtp = async (req, res) => {
     // =========================
     await session.commitTransaction();
     session.endSession();
+
+    // =========================
+    // 🎁 AUTO FREE TRIAL (30 din, TRIAL plan se — rate 0)
+    // =========================
+    await assignFreeTrialOnRegister(buildingDoc, req.app.get("io"));
 
     // =========================
     // 📧 SEND BUILDING CODE EMAIL (NON BLOCKING)

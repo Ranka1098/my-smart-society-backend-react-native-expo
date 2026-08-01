@@ -12,14 +12,25 @@ import getBlockedBuildings from "../controller/superAdmin/building/getBlockedBui
 import getExpiredBuildings from "../controller/superAdmin/building/getExpiredBuildings.js";
 import getSuperAdminDashboard from "../controller/superAdmin/building/getSuperAdminDashboard.js";
 import getBuildingFullDetail from "../controller/superAdmin/building/getBuildingFullDetail.js";
+import renewSubscription from "../controller/superAdmin/subscription/renewSubscription.js";
+import getBuildingByCode from "../controller/superAdmin/subscription/getBuildingByCode.js";
+import toggleBuildingStatus from "../controller/superAdmin/building/toggleBuildingStatus.js";
 const superAdminRouter = express.Router();
 
 superAdminRouter.post("/superAdminLoginStep1", superAdminLoginStep1);
 superAdminRouter.post("/superAdminLoginStep2", superAdminLoginStep2);
 superAdminRouter.post("/superAdminResendOtp", superAdminResendOtp);
 superAdminRouter.post("/superAdminLogout", superAdminAuth, superAdminLogout);
-superAdminRouter.get("/getSuperAdminDashboard", superAdminAuth, getSuperAdminDashboard);
-superAdminRouter.get("/getBuildingFullDetail/:id", superAdminAuth, getBuildingFullDetail);
+superAdminRouter.get(
+  "/getSuperAdminDashboard",
+  superAdminAuth,
+  getSuperAdminDashboard
+);
+superAdminRouter.get(
+  "/getBuildingFullDetail/:id",
+  superAdminAuth,
+  getBuildingFullDetail
+);
 
 superAdminRouter.get(
   "/superAdmin/buildings/all",
@@ -42,6 +53,12 @@ superAdminRouter.get(
   getExpiredBuildings
 );
 
+superAdminRouter.patch(
+  "/superAdmin/buildings/:id/toggle-status",
+  superAdminAuth,
+  toggleBuildingStatus
+);
+
 superAdminRouter.post(
   "/superAdminSaveFcmToken",
   superAdminAuth,
@@ -51,6 +68,18 @@ superAdminRouter.post(
   "/superAdminRemoveFcmToken",
   superAdminAuth,
   superAdminRemoveFcmToken
+);
+
+superAdminRouter.patch(
+  "/renewSubscription/:id",
+  superAdminAuth,
+  renewSubscription
+);
+
+superAdminRouter.get(
+  "/getBuildingByCode/:code",
+  superAdminAuth,
+  getBuildingByCode
 );
 
 export default superAdminRouter;
