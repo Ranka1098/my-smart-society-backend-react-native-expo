@@ -13,7 +13,7 @@ const getApprovedAdminWorkers = async (req, res) => {
     return res.status(200).json({
       success: true,
       count: workers.length,
-      workers,
+      data: workers,
     });
   } catch (err) {
     console.error("getApprovedAdminWorkers error:", err);

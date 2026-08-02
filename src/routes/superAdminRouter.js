@@ -15,6 +15,8 @@ import getBuildingFullDetail from "../controller/superAdmin/building/getBuilding
 import renewSubscription from "../controller/superAdmin/subscription/renewSubscription.js";
 import getBuildingByCode from "../controller/superAdmin/subscription/getBuildingByCode.js";
 import toggleBuildingStatus from "../controller/superAdmin/building/toggleBuildingStatus.js";
+import getSubscriptionPlans from "../controller/superAdmin/subscription/getSubscriptionPlans.js";
+import setDummyExpiry from "../controller/superAdmin/subscription/setDummyExpiry.js";
 const superAdminRouter = express.Router();
 
 superAdminRouter.post("/superAdminLoginStep1", superAdminLoginStep1);
@@ -81,5 +83,9 @@ superAdminRouter.get(
   superAdminAuth,
   getBuildingByCode
 );
+
+superAdminRouter.get("/subscriptionPlans", superAdminAuth, getSubscriptionPlans);
+
+superAdminRouter.patch("/superAdmin/buildings/:buildingId/dummy-expiry", superAdminAuth, setDummyExpiry);
 
 export default superAdminRouter;

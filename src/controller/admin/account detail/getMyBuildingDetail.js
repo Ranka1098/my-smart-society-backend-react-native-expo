@@ -1,12 +1,16 @@
-// controller/superAdmin/subscription/getBuildingFullDetail.js
+// controller/admin/subscription/getMyBuildingDetail.js
 import Building from "../../../model/building.js";
 import Transaction from "../../../model/transactionSchema.js";
 
-const getBuildingFullDetail = async (req, res) => {
+const getMyBuildingDetail = async (req, res) => {
   try {
-    const { id } = req.params;
+    const buildingCode = req.admin?.buildingCode; // apna adminAuth middleware ka actual field naam verify karo
 
-    const building = await Building.findById(id)
+    if (!buildingCode) {
+      return res.status(400).json({ success: false, message: "Building code missing in token" });
+    }
+
+    const building = await Building.findOne({ buildingCode })
       .populate("admin", "name email phone")
       .populate("plan", "planCode planName type perFlatRate perShopRate durationDays graceDays")
       .populate("subscriptionHistory.transactionId", "amount method status gatewayTxnId")
@@ -16,8 +20,7 @@ const getBuildingFullDetail = async (req, res) => {
       return res.status(404).json({ success: false, message: "Building not found" });
     }
 
-    // Optional — Transaction collection se bhi poora payment trail (audit ke liye extra)
-    const transactions = await Transaction.find({ building: id })
+    const transactions = await Transaction.find({ building: building._id })
       .sort({ createdAt: -1 })
       .select("type amount currency method status billedFlats billedShops perFlatRate perShopRate createdAt notes");
 
@@ -36,7 +39,7 @@ const getBuildingFullDetail = async (req, res) => {
         registeredAt: building.registeredAt || building.createdAt,
 
         currentSubscription: {
-          plan: building.plan, // { planCode, planName, type, perFlatRate, perShopRate, ... }
+          plan: building.plan,
           subscriptionType: building.subscriptionType,
           subscriptionStatus: building.subscriptionStatus,
           lockLevel: building.lockLevel,
@@ -52,7 +55,7 @@ const getBuildingFullDetail = async (req, res) => {
         },
 
         subscriptionHistory: building.subscriptionHistory || [],
-        transactions, // full payment trail — history se alag, raw audit records
+        transactions,
       },
     });
   } catch (error) {
@@ -60,4 +63,4 @@ const getBuildingFullDetail = async (req, res) => {
   }
 };
 
-export default getBuildingFullDetail;
+export default getMyBuildingDetail;

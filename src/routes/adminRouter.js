@@ -18,6 +18,7 @@ import adminSaveFcmToken from "../fcmToken/adminSaveFcmToken.js";
 import adminRemoveFcmToken from "../fcmToken/adminRemoveFcmToken.js";
 
 import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
+import getMyBuildingDetail from "../controller/admin/account detail/getMyBuildingDetail.js";
 const adminRouter = express.Router();
 
 //registration api
@@ -92,5 +93,7 @@ adminRouter.post(
   checkBuildingSubscription,
   adminRemoveFcmToken
 );
+
+adminRouter.get("/getMyBuildingDetail", adminAuth, getMyBuildingDetail);
 
 export default adminRouter;

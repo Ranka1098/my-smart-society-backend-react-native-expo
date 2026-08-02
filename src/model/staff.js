@@ -34,10 +34,6 @@ const staffSchema = new mongoose.Schema(
       trim: true,
       minlength: [3, "Worker name must be at least 3 characters"],
       maxlength: [50, "Worker name cannot exceed 50 characters"],
-      validate: {
-        validator: (v) => /^[A-Za-z\s]+$/.test(v),
-        message: "Worker name must contain only letters and spaces",
-      },
     },
 
     email: {
@@ -68,7 +64,7 @@ const staffSchema = new mongoose.Schema(
       type: String,
       required: [true, "Worker address is required"],
       trim: true,
-      minlength: [5, "Address must be at least 5 characters"],
+      minlength: [3, "Address must be at least 3 characters"],
       maxlength: [200, "Address cannot exceed 200 characters"],
     },
 
