@@ -16,13 +16,19 @@ export const assignFreeTrialOnRegister = async (building, io) => {
     isActive: true,
   });
   if (!trialPlan) {
-    console.error("No active trial plan found — seed a TRIAL plan first");
-    return building; // building phir bhi create ho jayegi, bas trial assign nahi hoga
+    console.error(
+      "❌ No active trial plan found — seed a TRIAL plan first (type:'trial', isActive:true)"
+    );
+    throw new Error("TRIAL_PLAN_NOT_SEEDED"); // silent fail band, ab error visible hoga
   }
 
   const now = new Date();
   const expiry = new Date(now);
   expiry.setDate(expiry.getDate() + trialPlan.durationDays);
+
+  // ✅ registration ke waqt admin ne jo count declare kiya, wahi dikhao
+  const declaredFlats = building.totalFlats || 0;
+  const declaredShops = building.totalShops || 0;
 
   building.plan = trialPlan._id;
   building.subscriptionType = "trial";
@@ -30,10 +36,10 @@ export const assignFreeTrialOnRegister = async (building, io) => {
   building.subscriptionExpiry = expiry;
   building.subscriptionStatus = "active";
   building.lockLevel = "none";
-  building.paymentStatus = "paid"; // trial = kuch owe nahi karta
-  building.lastBilledFlats = 0;
-  building.lastBilledShops = 0;
-  building.lastBilledAmount = 0;
+  building.paymentStatus = "paid";
+  building.lastBilledFlats = declaredFlats; // ✅ 0 nahi
+  building.lastBilledShops = declaredShops; // ✅ 0 nahi
+  building.lastBilledAmount = 0; // amount hamesha 0 rahega — trial free hai
 
   const txn = await Transaction.create({
     buildingCode: building.buildingCode,
@@ -41,13 +47,13 @@ export const assignFreeTrialOnRegister = async (building, io) => {
     plan: trialPlan._id,
     planCodeSnapshot: trialPlan.planCode,
     type: "free_trial",
-    billedFlats: 0,
-    billedShops: 0,
+    billedFlats: declaredFlats, // ✅
+    billedShops: declaredShops, // ✅
     perFlatRate: 0,
     perShopRate: 0,
     amount: 0,
     method: "free",
-    idempotencyKey: `trial-${building._id}`, // building ID unique hai, ek hi baar trial milega
+    idempotencyKey: `trial-${building._id}`,
     status: "success",
     initiatedBy: { role: "system", id: null },
     notes: "Auto free trial on registration",
@@ -56,15 +62,23 @@ export const assignFreeTrialOnRegister = async (building, io) => {
   building.subscriptionHistory.push({
     planCode: trialPlan.planCode,
     subscriptionType: "trial",
-    billedFlats: 0,
-    billedShops: 0,
+    billedFlats: declaredFlats, // ✅
+    billedShops: declaredShops, // ✅
     amount: 0,
     subscriptionStartDate: now,
     subscriptionExpiry: expiry,
     subscriptionStatus: "active",
     paymentStatus: "paid",
     transactionId: txn._id,
-    action: `Auto free trial (${trialPlan.durationDays} days) on registration`,
+    billingMonth: now.toLocaleString("en-IN", {
+      month: "long",
+      year: "numeric",
+    }),
+    method: "free",
+    gateway: null,
+    gatewayTxnId: null,
+    payerAccount: null,
+    action: `Auto Free Trial (${trialPlan.durationDays} days) on Registration`,
     changedBy: { role: "system", id: null },
     changedAt: now,
   });

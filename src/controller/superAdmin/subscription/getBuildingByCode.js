@@ -1,4 +1,3 @@
-
 import Building from "../../../model/building.js";
 
 const getBuildingByCode = async (req, res) => {
@@ -6,21 +5,28 @@ const getBuildingByCode = async (req, res) => {
     const { code } = req.params;
 
     if (!code) {
-      return res.status(400).json({ success: false, message: "Building code required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Building code required" });
     }
 
     const building = await Building.findOne({
       buildingCode: code.trim().toUpperCase(),
     })
       .populate("admin", "name email phone")
-      .populate("plan", "planCode planName type perFlatRate perShopRate durationDays graceDays")
+      .populate(
+        "plan",
+        "planCode planName type perFlatRate perShopRate durationDays graceDays"
+      )
       .populate({
         path: "subscriptionHistory.transactionId",
         select: "amount method status type billedFlats billedShops createdAt",
       });
 
     if (!building) {
-      return res.status(404).json({ success: false, message: "Building not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Building not found" });
     }
 
     return res.status(200).json({
@@ -55,11 +61,18 @@ const getBuildingByCode = async (req, res) => {
         .slice()
         .reverse()
         .map((h) => ({
+          _id: h._id,
           planCode: h.planCode,
+          subscriptionType: h.subscriptionType,
+          billingMonth: h.billingMonth,
           subscriptionStatus: h.subscriptionStatus,
           billedFlats: h.billedFlats,
           billedShops: h.billedShops,
           amount: h.amount,
+          method: h.method,
+          gateway: h.gateway,
+          gatewayTxnId: h.gatewayTxnId,
+          payerAccount: h.payerAccount,
           subscriptionExpiry: h.subscriptionExpiry,
           paymentStatus: h.paymentStatus,
           action: h.action,

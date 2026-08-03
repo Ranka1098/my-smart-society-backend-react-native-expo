@@ -110,6 +110,15 @@ const buildingSchema = new mongoose.Schema(
           enum: ["active", "grace", "expired", "blocked"],
         },
         paymentStatus: { type: String, enum: ["pending", "paid"] },
+        billingMonth: { type: String, default: null },
+        method: {
+          type: String,
+          enum: ["upi", "card", "netbanking", "cash", "free", "manual"],
+          default: null,
+        },
+        gateway: { type: String, default: null },
+        gatewayTxnId: { type: String, default: null },
+        payerAccount: { type: String, default: null },
         action: { type: String, default: null },
         transactionId: {
           type: mongoose.Schema.Types.ObjectId,

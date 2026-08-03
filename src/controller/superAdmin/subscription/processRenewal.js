@@ -1,8 +1,14 @@
 import Building from "../../../model/building.js";
 import SubscriptionPlan from "../../../model/subscriptionPlanSchema.js";
 import Transaction from "../../../model/transactionSchema.js";
-import { checkIdempotent, assertRenewable } from "../../../middleware/subscriptionGuard.js";
-import { countActiveUnits, calculateSubscriptionAmount } from "./calculateSubscriptionAmount.js";
+import {
+  checkIdempotent,
+  assertRenewable,
+} from "../../../middleware/subscriptionGuard.js";
+import {
+  countActiveUnits,
+  calculateSubscriptionAmount,
+} from "./calculateSubscriptionAmount.js";
 
 /**
  * Core renewal logic — SHARED between:
@@ -60,12 +66,33 @@ export const processRenewal = async ({
   }
 
   // ✅ Step 5 core — maintenance pe depend nahi, directly active count
-  const { flatCount, shopCount } = await countActiveUnits(building.buildingCode);
+  const { flatCount, shopCount } = await countActiveUnits(
+    building.buildingCode
+  );
   const amount = calculateSubscriptionAmount(plan, flatCount, shopCount);
 
   const now = new Date();
   const newExpiry = new Date(now);
   newExpiry.setDate(newExpiry.getDate() + plan.durationDays);
+
+  const billingMonth = now.toLocaleString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+
+  // ✅ gateway vs offline — UI badge/section ke liye
+  const GATEWAY_METHODS = ["upi", "card", "netbanking"];
+  const isGateway = GATEWAY_METHODS.includes(method);
+  const gateway = isGateway ? "Razorpay" : null;
+  const payerAccount = isGateway
+    ? gatewayTxnId
+      ? `Paid via ${method.toUpperCase()} (gateway)`
+      : null
+    : method === "cash"
+    ? `Cash collected by ${initiatedBy.role}`
+    : method === "manual"
+    ? `Manual settlement by ${initiatedBy.role}`
+    : null;
 
   // Transaction pending create -> building update -> success flip
   const txn = await Transaction.create({
@@ -84,6 +111,7 @@ export const processRenewal = async ({
     idempotencyKey,
     status: "pending",
     initiatedBy,
+    billingMonth,
     notes: note || null,
   });
 
@@ -114,9 +142,20 @@ export const processRenewal = async ({
     subscriptionStatus: "active",
     paymentStatus: "paid",
     transactionId: txn._id,
-    action: `Renewed (${plan.planCode}) — ${flatCount} flats + ${shopCount} shops = ₹${amount} by ${initiatedBy.role}${
-      note ? ` — ${note}` : ""
-    }`,
+    billingMonth,
+    method,
+    gateway,
+    gatewayTxnId: gatewayTxnId || null,
+    payerAccount,
+    action: `Renewed for ${billingMonth} — ${flatCount} flats + ${shopCount} shops = ₹${amount} (by ${
+      initiatedBy.role
+    }, ${
+      isGateway
+        ? method.toUpperCase() + " via gateway"
+        : method === "cash"
+        ? "Cash collected"
+        : "Manual settlement"
+    })`,
     changedBy: initiatedBy,
     changedAt: now,
   });

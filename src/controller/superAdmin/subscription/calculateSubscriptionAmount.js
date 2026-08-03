@@ -14,13 +14,15 @@ export const countActiveUnits = async (buildingCode) => {
   const [flatCount, shopCount] = await Promise.all([
     Member.countDocuments({
       buildingCode,
-      unitType: "flat", // ya jo bhi field flat/shop differentiate karta hai
-      status: "active", // ya isActive: true — apne schema ke hisaab se
+      memberType: "Flat",
+      approvalStatus: "Approved",
+      role: "primary", // ek unit sirf ek baar count ho, family members duplicate na ho
     }),
     Member.countDocuments({
       buildingCode,
-      unitType: "shop",
-      status: "active",
+      memberType: "Shop",
+      approvalStatus: "Approved",
+      role: "primary",
     }),
   ]);
 
