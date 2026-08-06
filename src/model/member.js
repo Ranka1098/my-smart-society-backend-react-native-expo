@@ -115,7 +115,6 @@ const memberSchema = new mongoose.Schema(
     password: {
       type: String,
       default: null,
-      minlength: 6,
       select: false,
     },
 
@@ -198,11 +197,10 @@ const memberSchema = new mongoose.Schema(
 // =========================
 memberSchema.index(
   { buildingCode: 1, unitNo: 1, memberType: 1, role: 1 },
-  { 
+  {
     unique: true,
-    partialFilterExpression: { role: "primary" }  // sirf primary pe enforce
+    partialFilterExpression: { role: "primary" }, // sirf primary pe enforce
   }
 );
 // export default mongoose.model("Member", memberSchema);
-export default mongoose.models.Member ||
-  mongoose.model("Member", memberSchema);
+export default mongoose.models.Member || mongoose.model("Member", memberSchema);

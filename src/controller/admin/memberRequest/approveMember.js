@@ -3,6 +3,7 @@
 // =========================
 
 import memberModel from "../../../model/member.js";
+import memberApprovalNotificationEmail from "../../../utils/memberApprovalNotificationEmail.js"; // apna actual path check kar
 
 const approveMember = async (req, res) => {
   try {
@@ -14,9 +15,9 @@ const approveMember = async (req, res) => {
     // sirf apni building ka member approve kar sakta hai
     // =========================
     const member = await memberModel.findOne({
-      _id:          memberId,
+      _id: memberId,
       buildingCode,
-      isVerified:   true,
+      isVerified: true,
       approvalStatus: "Pending",
     });
 
@@ -33,17 +34,24 @@ const approveMember = async (req, res) => {
     member.approvalStatus = "Approved";
     await member.save();
 
+    // =========================
+    // ✅ ADD — member ko approval email
+    // =========================
+    await memberApprovalNotificationEmail({
+      memberEmail: member.email,
+      memberName: member.fullName,
+    });
+
     return res.status(200).json({
       success: true,
       message: "Member approved successfully",
     });
-
   } catch (error) {
     console.log("Approve Member Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
-      error:   error.message,
+      error: error.message,
     });
   }
 };

@@ -3,10 +3,12 @@
 // =========================
 
 import memberModel from "../../../model/member.js";
+import memberRejectionNotificationEmail from "../../../utils/memberRejectionNotificationEmail.js"; // apna actual path check kar
 
 const rejectMember = async (req, res) => {
   try {
     const { memberId } = req.params;
+    const { reason } = req.body; // optional
     const buildingCode = req.buildingCode; // adminAuth middleware se
 
     // =========================
@@ -31,6 +33,15 @@ const rejectMember = async (req, res) => {
     // =========================
     member.approvalStatus = "Rejected";
     await member.save();
+
+    // =========================
+    // ✅ ADD — member ko rejection email
+    // =========================
+    await memberRejectionNotificationEmail({
+      memberEmail: member.email,
+      memberName: member.fullName,
+      reason: reason || null,
+    });
 
     return res.status(200).json({
       success: true,
