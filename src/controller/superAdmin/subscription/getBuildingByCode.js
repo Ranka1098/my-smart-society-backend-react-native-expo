@@ -1,3 +1,6 @@
+// controller/superAdmin/subscription/getBuildingByCode.js
+// buildingCode se poori building detail nikalta — superadmin ya admin dono use kar sakte.
+
 import Building from "../../../model/building.js";
 
 const getBuildingByCode = async (req, res) => {
@@ -10,18 +13,9 @@ const getBuildingByCode = async (req, res) => {
         .json({ success: false, message: "Building code required" });
     }
 
-    const building = await Building.findOne({
-      buildingCode: code.trim().toUpperCase(),
-    })
-      .populate("admin", "name email phone")
-      .populate(
-        "plan",
-        "planCode planName type perFlatRate perShopRate durationDays graceDays"
-      )
-      .populate({
-        path: "subscriptionHistory.transactionId",
-        select: "amount method status type billedFlats billedShops createdAt",
-      });
+    const building = await Building.findOne({ buildingCode: code })
+      .populate("admin", "adminName email phone") // admin ke sirf zaroori fields
+      .populate("subscriptionHistory.transactionId");
 
     if (!building) {
       return res
@@ -31,58 +25,11 @@ const getBuildingByCode = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      building: {
-        _id: building._id,
-        buildingName: building.buildingName,
-        buildingCode: building.buildingCode,
-        chairmanName: building.chairmanName,
-        chairmanPhone: building.chairmanPhone,
-        totalFlats: building.totalFlats,
-        totalShops: building.totalShops,
-        registeredAt: building.createdAt,
-      },
-      currentSub: {
-        plan: building.plan,
-        subscriptionType: building.subscriptionType,
-        subscriptionStatus: building.subscriptionStatus,
-        lockLevel: building.lockLevel,
-        subscriptionStartDate: building.subscriptionStartDate,
-        subscriptionExpiry: building.subscriptionExpiry,
-        graceEndsAt: building.graceEndsAt,
-        blockedAt: building.blockedAt,
-        blockedReason: building.blockedReason,
-        paymentStatus: building.paymentStatus,
-        lastBilledFlats: building.lastBilledFlats,
-        lastBilledShops: building.lastBilledShops,
-        lastBilledAmount: building.lastBilledAmount,
-      },
-      // full audit trail — kaun sa admin/superadmin/system ne kab kya kiya
-      subscriptionHistory: building.subscriptionHistory
-        .slice()
-        .reverse()
-        .map((h) => ({
-          _id: h._id,
-          planCode: h.planCode,
-          subscriptionType: h.subscriptionType,
-          billingMonth: h.billingMonth,
-          subscriptionStatus: h.subscriptionStatus,
-          billedFlats: h.billedFlats,
-          billedShops: h.billedShops,
-          amount: h.amount,
-          method: h.method,
-          gateway: h.gateway,
-          gatewayTxnId: h.gatewayTxnId,
-          payerAccount: h.payerAccount,
-          subscriptionExpiry: h.subscriptionExpiry,
-          paymentStatus: h.paymentStatus,
-          action: h.action,
-          transaction: h.transactionId,
-          changedBy: h.changedBy,
-          changedAt: h.changedAt,
-        })),
+      building,
     });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    console.error("getBuildingByCode error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 

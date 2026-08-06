@@ -1,77 +1,63 @@
 // middleware/checkBuildingSubscription.js
+// adminAuth YA memberAuth, dono ke baad lagao.
+// Expiry nikal chuki to lazy-update status="expired". expired/blocked ho to route block.
+
 import Building from "../model/building.js";
 
-const isWriteMethod = (method) => !["GET", "HEAD", "OPTIONS"].includes(method);
-
-/**
- * memberAuth/adminAuth ke baad lagao. Sirf READ karta — lockLevel field
- * (jo cron/controllers already maintain karte) check karta, khud koi
- * DB write NAHI karta. Status update sirf cron ya renewal/block controllers
- * ka kaam hai — single source of truth wahi rehta.
- */
 const checkBuildingSubscription = async (req, res, next) => {
   try {
+    // ✅ admin ke paas buildingId (ObjectId), member/staff ke paas buildingCode — teeno handle karo
+    const buildingId = req.admin?.buildingId;
     const buildingCode =
-      req.admin?.buildingCode || req.member?.buildingCode || req.buildingCode;
+      req.member?.buildingCode || req.staff?.buildingCode || req.buildingCode;
 
-    if (!buildingCode) {
+    if (!buildingId && !buildingCode) {
       return res
         .status(400)
-        .json({ success: false, message: "Building code missing on request" });
+        .json({ success: false, message: "No building linked" });
     }
 
-    const building = await Building.findOne({ buildingCode });
+    const query = buildingId ? { _id: buildingId } : { buildingCode };
+
+    const building = await Building.findOne(query).select(
+      "subscriptionStatus subscriptionExpiry blockedReason"
+    );
     if (!building) {
       return res
         .status(404)
         .json({ success: false, message: "Building not found" });
     }
 
-    if (!building.isActive) {
-      return res.status(403).json({
-        success: false,
-        code: "BUILDING_INACTIVE",
-        message: "Building is inactive. Contact support.",
-      });
+    const now = new Date();
+    if (
+      building.subscriptionExpiry &&
+      building.subscriptionExpiry < now &&
+      building.subscriptionStatus !== "expired" &&
+      building.subscriptionStatus !== "blocked"
+    ) {
+      building.subscriptionStatus = "expired";
+      await building.save();
     }
 
-    // blocked — sirf superadmin unblock action se hatega
-    if (building.subscriptionStatus === "blocked") {
+    if (
+      building.subscriptionStatus === "expired" ||
+      building.subscriptionStatus === "blocked"
+    ) {
       return res.status(403).json({
         success: false,
-        code: "BUILDING_BLOCKED",
-        message: building.blockedReason
-          ? `Building blocked by admin: ${building.blockedReason}`
-          : "Building blocked. Contact support.",
-      });
-    }
-
-    if (building.lockLevel === "full_lock") {
-      return res.status(403).json({
-        success: false,
-        code: "SUBSCRIPTION_EXPIRED",
-        message: "Building subscription expired, please renew to continue.",
-      });
-    }
-
-    if (building.lockLevel === "read_only" && isWriteMethod(req.method)) {
-      return res.status(403).json({
-        success: false,
-        code: "SUBSCRIPTION_GRACE_READONLY",
+        code: "SUBSCRIPTION_INACTIVE",
+        status: building.subscriptionStatus,
         message:
-          "Subscription in grace period — viewing allowed, new data entry locked until renewal.",
-        graceEndsAt: building.graceEndsAt,
+          building.subscriptionStatus === "blocked"
+            ? building.blockedReason || "Building blocked"
+            : "Subscription expired. Renew to continue.",
       });
     }
-
-    req.buildingSubscription = {
-      status: building.subscriptionStatus,
-      lockLevel: building.lockLevel,
-    };
 
     next();
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    console.error("checkBuildingSubscription error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 

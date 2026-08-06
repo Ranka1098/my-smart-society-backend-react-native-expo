@@ -1,76 +1,41 @@
-import SubscriptionPlan from "../../../model/subscriptionPlanSchema.js";
-import Transaction from "../../../model/transactionSchema.js";
+// controller/subscription/assignFreeTrialOnRegister.js
+// Building create hone ke turant baad call kar (registration/OTP-verify flow me).
+// Plan model ki zaroorat nahi — fix 30 din free.
+// billedFlats/billedShops = registration ke waqt admin ne jo total daale the (totalFlats/totalShops),
+// naya building hai isliye active-approved member count abhi 0 hoga — registration ka number dikhana sahi hai.
+
+import { TRIAL_DAYS } from "../../../controller/superAdmin/subscription/Subscriptionconfig.js";
 
 /**
- * Building create hone ke turant baad ye call karo (registerBuilding controller me,
- * building.save() ke baad). Ek "TRIAL" planCode wala plan pehle se DB me hona chahiye
- * (seed script se ek baar bana lena — perFlatRate/perShopRate: 0, durationDays: 30).
- *
- * Usage in registerBuilding.js:
- *   const building = await Building.create({...});
- *   await assignFreeTrialOnRegister(building, req.app.get("io"));
+ * @param {Document} building - already saved Building doc (has _id, buildingCode, totalFlats, totalShops)
  */
-export const assignFreeTrialOnRegister = async (building, io) => {
-  const trialPlan = await SubscriptionPlan.findOne({
-    type: "trial",
-    isActive: true,
-  });
-  if (!trialPlan) {
-    console.error(
-      "❌ No active trial plan found — seed a TRIAL plan first (type:'trial', isActive:true)"
-    );
-    throw new Error("TRIAL_PLAN_NOT_SEEDED"); // silent fail band, ab error visible hoga
-  }
-
+export const assignFreeTrialOnRegister = async (building) => {
   const now = new Date();
   const expiry = new Date(now);
-  expiry.setDate(expiry.getDate() + trialPlan.durationDays);
+  expiry.setDate(expiry.getDate() + TRIAL_DAYS); // 30 days
 
-  // ✅ registration ke waqt admin ne jo count declare kiya, wahi dikhao
-  const declaredFlats = building.totalFlats || 0;
-  const declaredShops = building.totalShops || 0;
+  const billedFlats = building.totalFlats || 0;
+  const billedShops = building.totalShops || 0;
 
-  building.plan = trialPlan._id;
   building.subscriptionType = "trial";
+  building.lastBilledFlats = billedFlats;
+  building.lastBilledShops = billedShops;
+  building.lastBilledAmount = 0;
   building.subscriptionStartDate = now;
   building.subscriptionExpiry = expiry;
   building.subscriptionStatus = "active";
-  building.lockLevel = "none";
-  building.paymentStatus = "paid";
-  building.lastBilledFlats = declaredFlats; // ✅ 0 nahi
-  building.lastBilledShops = declaredShops; // ✅ 0 nahi
-  building.lastBilledAmount = 0; // amount hamesha 0 rahega — trial free hai
-
-  const txn = await Transaction.create({
-    buildingCode: building.buildingCode,
-    building: building._id,
-    plan: trialPlan._id,
-    planCodeSnapshot: trialPlan.planCode,
-    type: "free_trial",
-    billedFlats: declaredFlats, // ✅
-    billedShops: declaredShops, // ✅
-    perFlatRate: 0,
-    perShopRate: 0,
-    amount: 0,
-    method: "free",
-    idempotencyKey: `trial-${building._id}`,
-    status: "success",
-    initiatedBy: { role: "system", id: null },
-    notes: "Auto free trial on registration",
-  });
+  building.paymentStatus = "free_trial";
 
   building.subscriptionHistory.push({
-    planCode: trialPlan.planCode,
     subscriptionType: "trial",
-    billedFlats: declaredFlats, // ✅
-    billedShops: declaredShops, // ✅
+    billedFlats,
+    billedShops,
     amount: 0,
     subscriptionStartDate: now,
     subscriptionExpiry: expiry,
     subscriptionStatus: "active",
-    paymentStatus: "paid",
-    transactionId: txn._id,
-    billingMonth: now.toLocaleString("en-IN", {
+    paymentStatus: "free_trial",
+    billingMonth: expiry.toLocaleString("en-IN", {
       month: "long",
       year: "numeric",
     }),
@@ -78,19 +43,12 @@ export const assignFreeTrialOnRegister = async (building, io) => {
     gateway: null,
     gatewayTxnId: null,
     payerAccount: null,
-    action: `Auto Free Trial (${trialPlan.durationDays} days) on Registration`,
+    action: `Auto free trial (${TRIAL_DAYS} days) on registration — ${billedFlats} flats + ${billedShops} shops`,
+    transactionId: null,
     changedBy: { role: "system", id: null },
     changedAt: now,
   });
 
   await building.save();
-
-  if (io) {
-    io.to(building.buildingCode).emit("subscription_trial_started", {
-      buildingCode: building.buildingCode,
-      subscriptionExpiry: expiry,
-    });
-  }
-
   return building;
 };

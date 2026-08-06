@@ -1,25 +1,31 @@
 // controller/superAdmin/subscription/getBuildingFullDetail.js
 import Building from "../../../model/building.js";
-import Transaction from "../../../model/transactionSchema.js";
+import Transaction from "../../../model/transectionRecord.js"; // ✅ sahi filename
 
 const getBuildingFullDetail = async (req, res) => {
   try {
     const { id } = req.params;
 
     const building = await Building.findById(id)
-      .populate("admin", "name email phone")
-      .populate("plan", "planCode planName type perFlatRate perShopRate durationDays graceDays")
-      .populate("subscriptionHistory.transactionId", "amount method status gatewayTxnId")
+      .populate("admin", "adminName email phone") // ✅ "name" nahi, "adminName" (adminModel me yahi field hai)
+      .populate(
+        "subscriptionHistory.transactionId",
+        "amount method status gatewayTxnId"
+      )
       .lean();
 
     if (!building) {
-      return res.status(404).json({ success: false, message: "Building not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Building not found" });
     }
 
-    // Optional — Transaction collection se bhi poora payment trail (audit ke liye extra)
+    // Optional — Transaction collection se poora payment trail (audit ke liye extra)
     const transactions = await Transaction.find({ building: id })
       .sort({ createdAt: -1 })
-      .select("type amount currency method status billedFlats billedShops perFlatRate perShopRate createdAt notes");
+      .select(
+        "amount currency method gateway gatewayOrderId gatewayTxnId payerAccount status initiatedBy notes createdAt"
+      ); // ✅ actual transaction.model.js fields ke mutabik
 
     return res.status(200).json({
       success: true,
@@ -36,23 +42,21 @@ const getBuildingFullDetail = async (req, res) => {
         registeredAt: building.registeredAt || building.createdAt,
 
         currentSubscription: {
-          plan: building.plan, // { planCode, planName, type, perFlatRate, perShopRate, ... }
           subscriptionType: building.subscriptionType,
           subscriptionStatus: building.subscriptionStatus,
-          lockLevel: building.lockLevel,
           subscriptionStartDate: building.subscriptionStartDate,
           subscriptionExpiry: building.subscriptionExpiry,
-          graceEndsAt: building.graceEndsAt,
           paymentStatus: building.paymentStatus,
           lastBilledFlats: building.lastBilledFlats,
           lastBilledShops: building.lastBilledShops,
           lastBilledAmount: building.lastBilledAmount,
           blockedAt: building.blockedAt,
           blockedReason: building.blockedReason,
+          // ⚠️ plan / lockLevel / graceEndsAt hata diye — schema me exist nahi karte
         },
 
         subscriptionHistory: building.subscriptionHistory || [],
-        transactions, // full payment trail — history se alag, raw audit records
+        transactions,
       },
     });
   } catch (error) {

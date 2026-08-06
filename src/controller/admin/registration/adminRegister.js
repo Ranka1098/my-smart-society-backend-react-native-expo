@@ -12,7 +12,7 @@ const generateOtp = () => {
 };
 
 // Password Regex
-const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{6,}$/;
+const passwordRegex = /^.{4,20}$/;
 
 const adminRegister = async (req, res) => {
   try {
@@ -76,8 +76,7 @@ const adminRegister = async (req, res) => {
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Password must contain uppercase, lowercase, number and special character",
+        message: "Password must be 4-20 characters",
       });
     }
 

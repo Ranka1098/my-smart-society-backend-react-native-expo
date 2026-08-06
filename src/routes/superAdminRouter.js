@@ -4,6 +4,7 @@ import superAdminLoginStep2 from "../controller/superAdmin/superAdminLoginStep2.
 import superAdminResendOtp from "../controller/superAdmin/superAdminResendOtp.js";
 import superAdminLogout from "../controller/superAdmin/superAdminLogout.js";
 import superAdminAuth from "../middleware/superAdminAuth.js";
+import AdminAuth from "../middleware/AdminAuth.js";
 import superAdminSaveFcmToken from "../fcmToken/superAdminSaveFcmToken.js";
 import superAdminRemoveFcmToken from "../fcmToken/superAdminRemoveFcmToken.js";
 import getAllBuildings from "../controller/superAdmin/building/getAllBuildings.js";
@@ -12,11 +13,15 @@ import getBlockedBuildings from "../controller/superAdmin/building/getBlockedBui
 import getExpiredBuildings from "../controller/superAdmin/building/getExpiredBuildings.js";
 import getSuperAdminDashboard from "../controller/superAdmin/building/getSuperAdminDashboard.js";
 import getBuildingFullDetail from "../controller/superAdmin/building/getBuildingFullDetail.js";
-import renewSubscription from "../controller/superAdmin/subscription/renewSubscription.js";
-import getBuildingByCode from "../controller/superAdmin/subscription/getBuildingByCode.js";
 import toggleBuildingStatus from "../controller/superAdmin/building/toggleBuildingStatus.js";
-import getSubscriptionPlans from "../controller/superAdmin/subscription/getSubscriptionPlans.js";
-import setDummyExpiry from "../controller/superAdmin/subscription/setDummyExpiry.js";
+import getBuildingByCode from "../controller/superAdmin/subscription/getBuildingByCode.js";
+
+// ✅ naya clean subscription system
+import { superAdminRenewSubscription } from "../controller/superAdmin/subscription/superAdminRenewSubscription.js";
+import { getSubscriptionHistory } from "../controller/superAdmin/subscription/getSubscriptionHistory.js";
+import { dummyExpiryTest } from "../controller/superAdmin/subscription/dummyExpiryTest.js";
+import { getRenewalPreview } from "../controller/superAdmin/subscription/getRenewalPreview.js";
+
 const superAdminRouter = express.Router();
 
 superAdminRouter.post("/superAdminLoginStep1", superAdminLoginStep1);
@@ -72,20 +77,41 @@ superAdminRouter.post(
   superAdminRemoveFcmToken
 );
 
-superAdminRouter.patch(
-  "/renewSubscription/:id",
+// ✅ Path 1 — superadmin manual renewal (cash/manual/upi offline collected)
+superAdminRouter.post(
+  "/superAdmin/buildings/:buildingId/renew",
   superAdminAuth,
-  renewSubscription
+  superAdminRenewSubscription
+);
+
+// ✅ superadmin kisi bhi building ka history dekh sakta
+superAdminRouter.get(
+  "/superAdmin/buildings/:buildingCode/subscription-history",
+  superAdminAuth,
+  getSubscriptionHistory
 );
 
 superAdminRouter.get(
-  "/getBuildingByCode/:code",
+  "/admin/buildings/:buildingCode/subscription-history",
+  AdminAuth,
+  getSubscriptionHistory
+);
+
+superAdminRouter.get(
+  "/superAdmin/getBuildingByCode/:code",
   superAdminAuth,
   getBuildingByCode
 );
 
-superAdminRouter.get("/subscriptionPlans", superAdminAuth, getSubscriptionPlans);
+superAdminRouter.patch(
+  "/superAdmin/buildings/:buildingId/dummy-expiry",
+  superAdminAuth,
+  dummyExpiryTest
+);
 
-superAdminRouter.patch("/superAdmin/buildings/:buildingId/dummy-expiry", superAdminAuth, setDummyExpiry);
-
+superAdminRouter.get(
+  "/superAdmin/buildings/:buildingId/renewal-preview",
+  superAdminAuth,
+  getRenewalPreview
+);
 export default superAdminRouter;

@@ -1,6 +1,6 @@
 // controller/admin/subscription/getMyBuildingDetail.js
 import Building from "../../../model/building.js";
-import Transaction from "../../../model/transactionSchema.js";
+import Transaction from "../../../model/transectionRecord.js";
 
 const getMyBuildingDetail = async (req, res) => {
   try {

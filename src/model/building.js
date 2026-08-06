@@ -60,12 +60,6 @@ const buildingSchema = new mongoose.Schema(
        SUBSCRIPTION SYSTEM (rate-based)
     ========================= */
 
-    plan: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "SubscriptionPlan",
-      default: null,
-    },
-
     subscriptionType: {
       type: String,
       enum: ["trial", "monthly"],
@@ -85,20 +79,13 @@ const buildingSchema = new mongoose.Schema(
       type: Date,
       default: function () {
         const d = new Date(this.subscriptionStartDate || Date.now());
-        d.setMonth(d.getMonth() + 1); // 1 month free trial default
+        d.setDate(d.getDate() + 30); // 30 days free trial default
         return d;
       },
     },
 
-    // ✅ grace tracking
-    graceEndsAt: {
-      type: Date,
-      default: null, // cron sets this jab active->grace ho
-    },
-
     subscriptionHistory: [
       {
-        planCode: { type: String, default: null },
         subscriptionType: { type: String, enum: ["trial", "monthly"] },
         billedFlats: { type: Number, default: 0 },
         billedShops: { type: Number, default: 0 },
@@ -107,9 +94,13 @@ const buildingSchema = new mongoose.Schema(
         subscriptionExpiry: Date,
         subscriptionStatus: {
           type: String,
-          enum: ["active", "grace", "expired", "blocked"],
+          enum: ["active", "expired", "blocked"],
         },
-        paymentStatus: { type: String, enum: ["pending", "paid"] },
+        // ✅ FIX: free_trial add kiya (yahi missing tha, isliye save fail ho raha tha)
+        paymentStatus: {
+          type: String,
+          enum: ["pending", "paid", "free_trial"],
+        },
         billingMonth: { type: String, default: null },
         method: {
           type: String,
@@ -140,7 +131,7 @@ const buildingSchema = new mongoose.Schema(
     subscriptionStatus: {
       type: String,
       enum: {
-        values: ["active", "grace", "expired", "blocked"],
+        values: ["active", "expired", "blocked"],
         message: "Invalid subscription status",
       },
       default: "active",
@@ -155,16 +146,10 @@ const buildingSchema = new mongoose.Schema(
       default: null,
     },
 
-    // lockLevel middleware isi ko check karega
-    lockLevel: {
-      type: String,
-      enum: ["none", "read_only", "full_lock"],
-      default: "none",
-    },
-
+    // ✅ FIX: duplicate paymentStatus hata diya, sirf ek clean version
     paymentStatus: {
       type: String,
-      enum: ["pending", "paid"],
+      enum: ["pending", "paid", "free_trial"],
       default: "paid", // trial = paid (kuch owe nahi karta)
     },
 

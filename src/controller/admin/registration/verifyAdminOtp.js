@@ -46,6 +46,9 @@ const generateBuildingCode = async (name, pincode) => {
 // ==============================
 const verifyAdminOtp = async (req, res) => {
   const session = await mongoose.startSession();
+  let committed = false; // ⚠️ track commit state — abort sirf tab jab commit NAHI hua
+
+  let buildingDoc, buildingCode, admin;
 
   try {
     let { email, otp } = req.body;
@@ -68,7 +71,7 @@ const verifyAdminOtp = async (req, res) => {
     // =========================
     // FIND ADMIN
     // =========================
-    const admin = await adminModel.findOne({ email }).session(session);
+    admin = await adminModel.findOne({ email }).session(session);
 
     if (!admin) throw new Error("Admin not found");
 
@@ -89,7 +92,7 @@ const verifyAdminOtp = async (req, res) => {
     // =========================
     // 🔥 GENERATE BUILDING CODE
     // =========================
-    const buildingCode = await generateBuildingCode(
+    buildingCode = await generateBuildingCode(
       admin.buildingName,
       admin.pincode
     );
@@ -98,8 +101,8 @@ const verifyAdminOtp = async (req, res) => {
     // 🏢 CREATE BUILDING
     // =========================
     // subscription fields yahan manually set NAHI karte — assignFreeTrialOnRegister()
-    // session commit ke baad plan/lockLevel/Transaction sab sahi se set karega
-    const [buildingDoc] = await buildingModel.create(
+    // commit ke baad plan/lockLevel/Transaction sab sahi se set karega
+    const created = await buildingModel.create(
       [
         {
           buildingCode,
@@ -114,6 +117,7 @@ const verifyAdminOtp = async (req, res) => {
       ],
       { session }
     );
+    buildingDoc = created[0];
 
     // =========================
     // ✅ UPDATE ADMIN
@@ -136,39 +140,12 @@ const verifyAdminOtp = async (req, res) => {
     // ✅ COMMIT TRANSACTION
     // =========================
     await session.commitTransaction();
-    session.endSession();
-
-    // =========================
-    // 🎁 AUTO FREE TRIAL (30 din, TRIAL plan se — rate 0)
-    // =========================
-    await assignFreeTrialOnRegister(buildingDoc, req.app.get("io"));
-
-    // =========================
-    // 📧 SEND BUILDING CODE EMAIL (NON BLOCKING)
-    // =========================
-    sendBuildingCode(admin.email, buildingCode).catch(() => {});
-
-    // =========================
-    // 🔔 NOTIFY SUPERADMIN (NON BLOCKING)
-    // =========================
-    notifyAdminToSuperadmin({
-      io: req.app.get("io"),
-      buildingCode,
-      buildingId: buildingDoc._id,
-      title: "New Building Registered",
-      message: `${admin.buildingName} (${buildingCode}) onboarded successfully.`,
-      data: { buildingCode, buildingId: buildingDoc._id.toString() },
-    }).catch((e) => console.log("Notify superadmin failed:", e.message));
-
-    return res.status(200).json({
-      success: true,
-      message: "OTP verified successfully. Building created.",
-      buildingCode,
-      buildingId: buildingDoc._id,
-    });
+    committed = true; // ⚠️ ab se abort kabhi mat chalana
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
+    // commit ho chuka ho to abort mat kar — MongoDB isi wajah se crash karta tha
+    if (!committed) {
+      await session.abortTransaction().catch(() => {});
+    }
 
     console.log("Verify OTP Error:", error);
 
@@ -176,7 +153,42 @@ const verifyAdminOtp = async (req, res) => {
       success: false,
       message: error.message || "Verification failed",
     });
+  } finally {
+    session.endSession();
   }
+
+  // =========================
+  // ⬇️ COMMIT ke baad wale side-effects — transaction/session se bahar,
+  // inme koi bhi fail ho to response me already-success bata denge (ye sab
+  // best-effort/non-critical hain), lekin process crash nahi hoga
+  // =========================
+
+  // 🎁 AUTO FREE TRIAL (30 din, TRIAL plan se — rate 0)
+  try {
+    await assignFreeTrialOnRegister(buildingDoc, req.app.get("io"));
+  } catch (e) {
+    console.log("assignFreeTrialOnRegister failed:", e.message);
+  }
+
+  // 📧 SEND BUILDING CODE EMAIL (NON BLOCKING)
+  sendBuildingCode(admin.email, buildingCode).catch(() => {});
+
+  // 🔔 NOTIFY SUPERADMIN (NON BLOCKING)
+  notifyAdminToSuperadmin({
+    io: req.app.get("io"),
+    buildingCode,
+    buildingId: buildingDoc._id,
+    title: "New Building Registered",
+    message: `${admin.buildingName} (${buildingCode}) onboarded successfully.`,
+    data: { buildingCode, buildingId: buildingDoc._id.toString() },
+  }).catch((e) => console.log("Notify superadmin failed:", e.message));
+
+  return res.status(200).json({
+    success: true,
+    message: "OTP verified successfully. Building created.",
+    buildingCode,
+    buildingId: buildingDoc._id,
+  });
 };
 
 export default verifyAdminOtp;

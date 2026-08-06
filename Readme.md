@@ -102,3 +102,40 @@ Frontend flow:
    Abhi broken hai. Naya processRenewal.js use karke rewrite karta hu — chahiye?
 
 Batao "ha likh do" bolo to superadmin ka naya renewSubscription.js (processRenewal core use karke) + uska frontend call kaisa hoga wo dikhata hu.
+
+
+RONTEND (component):
+
+SubscriptionHistoryDummy.js → React Native screen, sirf UI
+
+BACKEND — Models (schema):
+
+admin.js
+building.js
+transactionSchema.js
+subscriptionPlanSchema.js
+
+BACKEND — API routes (controller, direct hit hota):
+
+adminRegister.js → POST register
+verifyAdminOtp.js → POST verify-otp
+getBuildingByCode.js → GET building/:code
+getSubscriptionPlans.js → GET plans
+renewMySubscription.js → POST admin renew
+renewSubscription.js → POST superadmin renew
+setDummyExpiry.js → POST test expiry
+cashfreeWebhookDummy.js → POST webhook
+
+BACKEND — Helper/core logic (koi route nahi, andar se call hote):
+
+assignFreeTrialOnRegister.js → verifyAdminOtp se call hota
+processRenewal.js → renewMySubscription + renewSubscription dono se call hota (shared core)
+calculateSubscriptionAmount.js → processRenewal se call hota
+
+BACKEND — Middleware:
+
+checkBuildingSubscription.js → routes ke beech me lockLevel check
+
+Test script (route nahi, node se run hota):
+
+testCashfreeWebhook.js

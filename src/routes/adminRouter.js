@@ -16,6 +16,7 @@ import getDashboardStats from "../controller/admin/dashbaordStat/getDashboardSta
 import member from "../model/member.js";
 import adminSaveFcmToken from "../fcmToken/adminSaveFcmToken.js";
 import adminRemoveFcmToken from "../fcmToken/adminRemoveFcmToken.js";
+import memberAuth from "../middleware/memberAuth.js";
 
 import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
 import getMyBuildingDetail from "../controller/admin/account detail/getMyBuildingDetail.js";
@@ -77,7 +78,14 @@ adminRouter.post("/adminLogout", adminAuth, adminLogout);
 adminRouter.get(
   "/getDashboardStats",
   adminAuth,
-  checkBuildingSubscription,
+  // checkBuildingSubscription,
+  getDashboardStats
+);
+
+adminRouter.get(
+  "/member/getDashboardStats",
+  memberAuth,
+  // checkBuildingSubscription,
   getDashboardStats
 );
 
