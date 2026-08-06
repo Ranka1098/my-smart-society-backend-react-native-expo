@@ -4,7 +4,7 @@ import superAdminLoginStep2 from "../controller/superAdmin/superAdminLoginStep2.
 import superAdminResendOtp from "../controller/superAdmin/superAdminResendOtp.js";
 import superAdminLogout from "../controller/superAdmin/superAdminLogout.js";
 import superAdminAuth from "../middleware/superAdminAuth.js";
-import AdminAuth from "../middleware/AdminAuth.js";
+import AdminAuth from "../middleware/adminAuth.js";
 import superAdminSaveFcmToken from "../fcmToken/superAdminSaveFcmToken.js";
 import superAdminRemoveFcmToken from "../fcmToken/superAdminRemoveFcmToken.js";
 import getAllBuildings from "../controller/superAdmin/building/getAllBuildings.js";
