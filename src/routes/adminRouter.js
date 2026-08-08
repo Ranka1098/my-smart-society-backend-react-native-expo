@@ -20,6 +20,7 @@ import memberAuth from "../middleware/memberAuth.js";
 
 import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
 import getMyBuildingDetail from "../controller/admin/account detail/getMyBuildingDetail.js";
+import { getBuildingInfo } from "../controller/maintenance/getBuildingInfo.js";
 const adminRouter = express.Router();
 
 //registration api
@@ -103,5 +104,10 @@ adminRouter.post(
 );
 
 adminRouter.get("/getMyBuildingDetail", adminAuth, getMyBuildingDetail);
+
+// adminRoutes.js
+adminRouter.get("/buildingInfo", adminAuth, getBuildingInfo);
+
+// adminRoutes.js
 
 export default adminRouter;
