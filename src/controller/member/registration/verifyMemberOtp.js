@@ -67,12 +67,12 @@ const verifyMemberOtp = async (req, res) => {
 
     await member.save();
 
-    // ✅ ADD — admin ko notify karo naya member approval ke liye
+    // ✅ ab buildingId member document se hi milega (register ke time save hua tha)
     const io = req.app.get("io");
     await notifyMemberToAdmin({
       io,
       buildingCode: member.buildingCode,
-      buildingId: member.buildingId, // agar member schema me hai, warna hata do
+      buildingId: member.buildingId,
       type: "NEW_MEMBER_REQUEST",
       title: "New Member Registration",
       message: `${member.fullName} (${member.unitNo}) registered — approval pending`,

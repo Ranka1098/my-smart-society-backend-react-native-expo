@@ -26,7 +26,12 @@ const memberSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
-
+    buildingId: {
+      // ✅ NAYA
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Building",
+      required: true,
+    },
     buildingName: {
       type: String,
       required: true,

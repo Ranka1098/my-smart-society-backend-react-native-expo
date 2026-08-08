@@ -443,7 +443,7 @@ export const memberRegister = async (req, res) => {
 
       buildingCode,
       buildingName: building.buildingName,
-
+      buildingId: building._id,
       unitNo,
       shopName: shopName || null,
 
