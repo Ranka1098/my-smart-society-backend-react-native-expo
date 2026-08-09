@@ -1,10 +1,11 @@
 import StaffModel from "../../model/staff.js";
 import { notifyAllMembers } from "../notifcation/notifyMembers.js";
+import staffApprovalNotificationEmail from "../../utils/staffApprovalNotificationEmail.js"; // ✅ apna actual path
 
 const approveStaff = async (req, res) => {
   try {
     const { buildingCode } = req;
-    const buildingId = req.admin.buildingId; // ✅ vendor expense wale pattern jaisa
+    const buildingId = req.admin.buildingId;
     const { staffId } = req.params;
 
     const staff = await StaffModel.findOne({ _id: staffId, buildingCode });
@@ -24,7 +25,16 @@ const approveStaff = async (req, res) => {
     staff.joiningDate = new Date();
     await staff.save();
 
-    // ✅ NEW_STAFF_MEMBER_ADDED — sab members ko notify
+    // ✅ NAYA — approval email (member wale pattern jaisa, non-blocking)
+    try {
+      await staffApprovalNotificationEmail({
+        staffEmail: staff.email,
+        staffName: staff.workerName,
+      });
+    } catch (mailErr) {
+      console.error("Staff approval email failed:", mailErr.message);
+    }
+
     const io = req.app.get("io");
     await notifyAllMembers({
       io,

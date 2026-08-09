@@ -38,6 +38,7 @@ const notificationSchema = new mongoose.Schema(
         "GUEST_APPROVED",
         "GUEST_REJECTED",
         "GUEST_DENIED",
+        "STAFF_APPROVAL_PENDING",
       ],
       required: true,
     },

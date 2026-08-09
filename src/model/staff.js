@@ -13,7 +13,11 @@ const staffSchema = new mongoose.Schema(
       minlength: [2, "Building code must be at least 2 characters"],
       maxlength: [20, "Building code cannot exceed 20 characters"],
     },
-
+    buildingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Building",
+      required: true,
+    },
     role: {
       type: String,
       required: [true, "Role is required"],
@@ -104,11 +108,6 @@ const staffSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
-    },
-
-    rejectionReason: {
-      type: String,
-      default: null,
     },
   },
   {

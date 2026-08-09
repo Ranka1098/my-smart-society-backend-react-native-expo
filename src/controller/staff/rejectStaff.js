@@ -1,9 +1,10 @@
 import StaffModel from "../../model/staff.js";
+import staffRejectionNotificationEmail from "../../utils/staffRejectionNotificationEmail.js"; // apna actual path
+
 const rejectStaff = async (req, res) => {
   try {
     const { buildingCode } = req;
     const { staffId } = req.params;
-    const { reason } = req.body;
 
     const staff = await StaffModel.findOne({ _id: staffId, buildingCode });
     if (!staff) {
@@ -19,10 +20,17 @@ const rejectStaff = async (req, res) => {
     }
 
     staff.status = "rejected";
-    staff.rejectionReason = reason || "Not specified";
     await staff.save();
 
-    // TODO: Notify staff via FCM/email that they are rejected
+    // ✅ rejection email (non-blocking)
+    try {
+      await staffRejectionNotificationEmail({
+        staffEmail: staff.email,
+        staffName: staff.workerName,
+      });
+    } catch (mailErr) {
+      console.error("Staff rejection email failed:", mailErr.message);
+    }
 
     return res.status(200).json({ success: true, message: "Staff rejected" });
   } catch (error) {

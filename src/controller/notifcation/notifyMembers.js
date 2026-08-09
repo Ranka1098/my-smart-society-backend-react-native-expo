@@ -298,6 +298,34 @@ export async function notifyMemberToStaff({
   return notification;
 }
 
+export async function notifyStaffToAdmin({
+  io,
+  buildingCode,
+  buildingId,
+  type,
+  title,
+  message,
+  referenceId = null,
+  referenceModel = null,
+  data = {},
+  senderId,
+}) {
+  return createAndSend({
+    io,
+    buildingCode,
+    buildingId,
+    type,
+    audience: "ADMIN",
+    title,
+    message,
+    referenceId,
+    referenceModel,
+    data,
+    receiverId: senderId,
+    receiverModel: "STAFF",
+  });
+}
+
 // ─── 7. Staff → Specific Member (guest approve/reject decision) ───────────
 export async function notifyStaffToMember({
   io,

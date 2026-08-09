@@ -71,6 +71,12 @@ app.get("/api", (req, res) =>
 );
 
 io.on("connection", (socket) => {
+  socket.on("leave_all_rooms", () => {
+    const rooms = Array.from(socket.rooms).filter((r) => r !== socket.id);
+    rooms.forEach((r) => socket.leave(r));
+    console.log(`Socket ${socket.id} left previous rooms:`, rooms);
+  });
+
   socket.on("join_building", (buildingCode) => {
     socket.join(buildingCode);
     console.log(`Socket ${socket.id} joined building: ${buildingCode}`);

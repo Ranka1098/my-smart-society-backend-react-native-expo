@@ -51,6 +51,59 @@ const staffRegister = async (req, res) => {
     });
 
     if (existing) {
+      // ✅ NAYA — pehle reject ho chuka hai to fresh registration jaisa treat karo
+      if (existing.status === "rejected") {
+        let workerPhotoUrl = existing.workerPhoto;
+        let workerIdProofUrl = existing.workerIdProof;
+
+        if (req.files?.workerPhoto?.[0]) {
+          const compressed = await sharp(req.files.workerPhoto[0].buffer)
+            .resize({ width: 800, withoutEnlargement: true })
+            .jpeg({ quality: 70 })
+            .toBuffer();
+          const uploaded = await uploadToCloudinary(compressed, "staffPhotos");
+          workerPhotoUrl = uploaded.secure_url;
+        }
+
+        if (req.files?.workerIdProof?.[0]) {
+          const compressed = await sharp(req.files.workerIdProof[0].buffer)
+            .resize({ width: 1200, withoutEnlargement: true })
+            .jpeg({ quality: 70 })
+            .toBuffer();
+          const uploaded = await uploadToCloudinary(
+            compressed,
+            "staffIdProofs"
+          );
+          workerIdProofUrl = uploaded.secure_url;
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const otp = generateOtp();
+
+        existing.role = role;
+        existing.workerName = workerName;
+        existing.workerPhoneNumber = workerPhoneNumber;
+        existing.password = hashedPassword;
+        existing.workerAddress = workerAddress;
+        existing.workerPhoto = workerPhotoUrl;
+        existing.workerIdProof = workerIdProofUrl;
+        existing.otp = otp;
+        existing.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+        existing.isEmailVerified = false; // ✅ dobara verify karana hoga
+        existing.status = "pending"; // ✅ reset
+
+        await existing.save();
+
+        try {
+          await sendOtpEmail(email, otp, workerName);
+        } catch (e) {}
+
+        return res.status(200).json({
+          success: true,
+          message: "Registration successful. OTP sent to your email.",
+        });
+      }
+
       if (!existing.isEmailVerified) {
         // Upload photos if present
         if (req.files?.workerPhoto?.[0]) {
@@ -86,6 +139,8 @@ const staffRegister = async (req, res) => {
           .status(200)
           .json({ success: true, message: "OTP resent to your email" });
       }
+
+      // ✅ ab yaha sirf "approved" ya "pending+verified" (waiting admin approval) staff aayega
       return res.status(409).json({
         success: false,
         message: "Staff already registered with this email",
@@ -124,6 +179,7 @@ const staffRegister = async (req, res) => {
     // 6. Save staff
     const staff = new StaffModel({
       buildingCode: buildingCode.toUpperCase(),
+      buildingId: building._id,
       role,
       workerName,
       email: email.toLowerCase(),

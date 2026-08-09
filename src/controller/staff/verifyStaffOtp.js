@@ -1,5 +1,7 @@
 import StaffModel from "../../model/staff.js";
- const verifyStaffOtp = async (req, res) => {
+import { notifyStaffToAdmin } from "../notifcation/notifyMembers.js";
+
+const verifyStaffOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
@@ -32,8 +34,32 @@ import StaffModel from "../../model/staff.js";
     staff.otpExpiry = null;
     await staff.save();
 
-    // TODO: Notify admin via socket/FCM that new staff request is pending
-    // notifyAdmin(staff.buildingCode, staff);
+    // ✅ NAYA — notify ko apne try-catch me wrap kiya
+    // taaki notification fail ho to bhi verification response sahi jaye
+    try {
+      const io = req.app.get("io");
+      await notifyStaffToAdmin({
+        io,
+        buildingCode: staff.buildingCode,
+        buildingId: staff.buildingId,
+        type: "STAFF_APPROVAL_PENDING",
+        title: "New Staff Request 🧑‍🔧",
+        message: `${staff.workerName} (${staff.role}) registered — approval pending`,
+        referenceId: staff._id,
+        referenceModel: "Staff",
+        data: {
+          staffId: staff._id.toString(),
+          workerName: staff.workerName,
+          role: staff.role,
+        },
+        senderId: staff._id,
+      });
+    } catch (notifyErr) {
+      console.error(
+        "Admin notify failed (staff still verified):",
+        notifyErr.message
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -45,4 +71,4 @@ import StaffModel from "../../model/staff.js";
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
-export default verifyStaffOtp
+export default verifyStaffOtp;
