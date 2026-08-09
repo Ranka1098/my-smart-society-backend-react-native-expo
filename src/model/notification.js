@@ -69,6 +69,10 @@ const notificationSchema = new mongoose.Schema(
     data: { type: Object, default: {} },
     clickUrl: { type: String, default: null },
 
+    // model/notification.js — add field
+    senderId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    senderModel: { type: String, enum: ["MEMBER", "STAFF"], default: null },
+
     readBy: [
       {
         userId: { type: mongoose.Schema.Types.ObjectId, required: true },

@@ -5,18 +5,22 @@ const memberNotifications = async (req, res) => {
     const memberId = req.member._id;
     const buildingCode = req.buildingCode;
 
+    // ✅ NAYA — member ka approval date — apna actual field check karo
+    // (approvedAt / isVerifiedAt / createdAt — Member model me jo bhi field hai)
+    const sinceDate = req.member.approvedAt || req.member.createdAt;
+
     const notifications = await NotificationModel.find({
       buildingCode,
+      createdAt: { $gte: sinceDate }, // ✅ NAYA
       $or: [
-        { audience: "MEMBERS", receiverId: null }, // ✅ true broadcast — sab dekhein
+        { audience: "MEMBERS", receiverId: null },
         { audience: "STAFF" },
-        { receiverId: memberId, receiverModel: "MEMBER" }, // ✅ apna targeted
+        { receiverId: memberId, receiverModel: "MEMBER" },
       ],
     })
       .sort({ createdAt: -1 })
       .limit(50);
 
-    // har notification mein isRead compute karo
     const result = notifications.map((n) => ({
       ...n.toObject(),
       isRead: n.readBy.some((r) => r.userId.toString() === memberId.toString()),

@@ -20,6 +20,8 @@ async function createAndSend({
   data = {},
   receiverId = null,
   receiverModel = null,
+  senderId = null, // ✅ NAYA
+  senderModel = null,
 }) {
   const notification = await Notification.create({
     buildingCode,
@@ -33,6 +35,8 @@ async function createAndSend({
     data,
     receiverId,
     receiverModel,
+    senderId, // ✅ ADD
+    senderModel, // ✅ ADD
   });
 
   let tokens = [];
@@ -61,6 +65,7 @@ async function createAndSend({
     }).select("fcmToken");
     if (admin?.fcmToken) tokens = [admin.fcmToken];
     io.to(`admin_${buildingCode}`).emit("notification", {
+      _id: notification._id.toString(),
       type,
       title,
       message,
@@ -73,6 +78,7 @@ async function createAndSend({
     }).select("fcmToken");
     tokens = staffList.map((s) => s.fcmToken).filter(Boolean);
     io.to(`staff_${buildingCode}`).emit("notification", {
+      _id: notification._id.toString(),
       type,
       title,
       message,
@@ -83,7 +89,13 @@ async function createAndSend({
       fcmToken: { $ne: null },
     }).select("fcmToken");
     if (superadmin?.fcmToken) tokens = [superadmin.fcmToken];
-    io.to("superadmin").emit("notification", { type, title, message, data });
+    io.to("superadmin").emit("notification", {
+      _id: notification._id.toString(),
+      type,
+      title,
+      message,
+      data,
+    });
   }
 
   // notifyMembers.js — createAndSend() ke andar
@@ -216,8 +228,8 @@ export async function notifyMemberToAdmin({
     referenceId,
     referenceModel,
     data,
-    receiverId: senderId,
-    receiverModel: "MEMBER",
+    senderId,             // ✅ CHANGE — receiverId nahi
+    senderModel: "MEMBER", // ✅ CHANGE — receiverModel nahi
   });
 }
 
@@ -321,8 +333,8 @@ export async function notifyStaffToAdmin({
     referenceId,
     referenceModel,
     data,
-    receiverId: senderId,
-    receiverModel: "STAFF",
+    senderId,            // ✅ CHANGE
+    senderModel: "STAFF", // ✅ CHANGE
   });
 }
 

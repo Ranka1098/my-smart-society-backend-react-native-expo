@@ -5,14 +5,18 @@ const getStaffUnreadNotificationCount = async (req, res) => {
     const staffId = req.staff._id; // ⚠️ apna auth middleware check karo — id ya _id
     const buildingCode = req.buildingCode;
 
-    const count = await Notification.countDocuments({
-      buildingCode,
-      $or: [
-        { audience: "STAFF", receiverId: null }, // ✅ sab guards ke liye broadcast
-        { receiverId: staffId, receiverModel: "STAFF" }, // ✅ agar kabhi specific staff ko bheja ho
-      ],
-      "readBy.userId": { $ne: staffId },
-    });
+// getStaffUnreadNotificationCount.js
+const sinceDate = req.staff.approvedAt || req.staff.joiningDate || req.staff.createdAt;
+
+const count = await Notification.countDocuments({
+  buildingCode,
+  createdAt: { $gte: sinceDate }, // ✅ NAYA
+  $or: [
+    { audience: "STAFF", receiverId: null },
+    { receiverId: staffId, receiverModel: "STAFF" },
+  ],
+  "readBy.userId": { $ne: staffId },
+});
 
     return res.status(200).json({ success: true, count });
   } catch (error) {

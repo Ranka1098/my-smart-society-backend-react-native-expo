@@ -5,11 +5,15 @@ const getUnreadMemberNotificationCount = async (req, res) => {
     const memberId = req.member._id;
     const buildingCode = req.buildingCode;
 
+    // getUnreadMemberNotificationCount.js
+    const sinceDate = req.member.approvedAt || req.member.createdAt;
+
     const count = await Notification.countDocuments({
       buildingCode,
+      createdAt: { $gte: sinceDate }, // ✅ NAYA
       $or: [
-        { audience: "MEMBERS", receiverId: null }, // ✅ sirf true broadcast
-        { receiverId: memberId, receiverModel: "MEMBER" }, // ✅ apna targeted
+        { audience: "MEMBERS", receiverId: null },
+        { receiverId: memberId, receiverModel: "MEMBER" },
       ],
       "readBy.userId": { $ne: memberId },
     });
