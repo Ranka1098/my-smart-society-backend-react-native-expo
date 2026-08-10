@@ -1,10 +1,17 @@
 import WorkerProfile from "../../model/WorkerProfile.js";
 import Visitor from "../../model/Visitor.js";
+import memberModel from "../../model/member.js";
+import {
+  notifyWorkerToMembers,
+  notifyWorkerToAdmin,
+} from "../../controller/notifcation/notifyMembers.js";
+
 const quickWorkerEntry = async (req, res) => {
   try {
     const { workerId } = req.body;
     const buildingCode = req.buildingCode;
     const guardId = req.staff._id;
+    const io = req.app.get("io"); // ✅ CHANGE
 
     if (!workerId) {
       return res
@@ -37,7 +44,50 @@ const quickWorkerEntry = async (req, res) => {
       entryTime: new Date(),
     });
 
-    // ── same response me updated "currently inside" list bhi bhej do ──
+    // ══════════════════════════════════════════════
+    // ✅ ADD — ENTRY NOTIFICATION
+    // ══════════════════════════════════════════════
+    const notifData = {
+      visitorId: visitor._id.toString(),
+      name: worker.name,
+      category: worker.category,
+      flatNo: visitor.flatNo,
+      entryTime: visitor.entryTime,
+    };
+    const notifTitle = "Worker Entry";
+    const notifMessage = `${worker.name} (${worker.category}) ne entry ki hai.`;
+
+    if (worker.workerType === "FlatStaff") {
+      const members = await memberModel
+        .find({ buildingCode, unitNo: worker.flatNo })
+        .select("_id fcmToken");
+
+      if (members.length) {
+        await notifyWorkerToMembers({
+          io,
+          buildingCode,
+          type: "WORKER_ENTRY",
+          title: notifTitle,
+          message: notifMessage,
+          referenceId: visitor._id,
+          referenceModel: "Visitor",
+          data: notifData,
+          members,
+        });
+      }
+    } else {
+      await notifyWorkerToAdmin({
+        io,
+        buildingCode,
+        type: "WORKER_ENTRY",
+        title: notifTitle,
+        message: notifMessage,
+        referenceId: visitor._id,
+        referenceModel: "Visitor",
+        data: notifData,
+      });
+    }
+
     const insideList = await Visitor.find({
       buildingCode,
       status: "Approved",

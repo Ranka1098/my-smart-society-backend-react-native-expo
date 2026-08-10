@@ -42,6 +42,9 @@ const notificationSchema = new mongoose.Schema(
         "WORKER_APPROVAL_PENDING", // ✅ NAYA
         "WORKER_APPROVED", // ✅ NAYA
         "WORKER_REJECTED", // ✅ NAYA
+        "WORKER_ENTRY",
+        "WORKER_EXIT",
+        "EMERGENCY_EXIT"
       ],
       required: true,
     },

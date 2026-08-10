@@ -1,6 +1,8 @@
 import Visitor from "../../model/Visitor.js";
 import sharp from "sharp";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
+import memberModel from "../../model/member.js";
+import { notifyWorkerToMembers } from "../../controller/notifcation/notifyMembers.js";
 
 const emergencyExit = async (req, res) => {
   try {
@@ -39,10 +41,9 @@ const emergencyExit = async (req, res) => {
 
     const now = new Date();
 
-    // ── Direct entry+exit record — no FCM/approval flow ──
     const visitor = await Visitor.create({
       buildingCode,
-        name: "Emergency Exit",
+      name: "Emergency Exit",
       purpose: "Other",
       flatNo,
       guardId,
@@ -54,10 +55,42 @@ const emergencyExit = async (req, res) => {
       exitTime: now,
     });
 
+    // ══════════════════════════════════════════════
+    // FLAT MEMBERS KO NOTIFY KARO
+    // ══════════════════════════════════════════════
+    const io = req.app.get("io");
+    const members = await memberModel
+      .find({ buildingCode, unitNo: flatNo })
+      .select("_id fcmToken");
+
+    let flatMatched = true; // ✅ ADD
+
+    if (members.length) {
+      await notifyWorkerToMembers({
+        io,
+        buildingCode,
+        type: "EMERGENCY_EXIT",
+        title: "Emergency Exit Logged",
+        message: `Guard ne Flat ${flatNo} ke liye emergency exit record kiya hai.`,
+        referenceId: visitor._id,
+        referenceModel: "Visitor",
+        data: {
+          visitorId: visitor._id.toString(),
+          flatNo,
+          exitTime: visitor.exitTime,
+          exitPhotoUrl,
+        },
+        members,
+      });
+    } else {
+      flatMatched = false; // ✅ ADD — koi notify nahi hua
+    }
+
     return res.status(201).json({
       success: true,
       message: "Emergency exit logged",
       data: visitor,
+      flatMatched, // ✅ ADD
     });
   } catch (error) {
     console.error("emergencyExit error:", error);
