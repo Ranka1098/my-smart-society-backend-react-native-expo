@@ -1,20 +1,20 @@
 import NotificationModel from "../../../model/notification.js";
 
+const MEMBER_VISIBLE_STAFF_TYPES = []; // ✅ NAYA — jo STAFF-type notifications members ko dikhne chahiye
+
 const memberNotifications = async (req, res) => {
   try {
     const memberId = req.member._id;
     const buildingCode = req.buildingCode;
 
-    // ✅ NAYA — member ka approval date — apna actual field check karo
-    // (approvedAt / isVerifiedAt / createdAt — Member model me jo bhi field hai)
     const sinceDate = req.member.approvedAt || req.member.createdAt;
 
     const notifications = await NotificationModel.find({
       buildingCode,
-      createdAt: { $gte: sinceDate }, // ✅ NAYA
+      createdAt: { $gte: sinceDate },
       $or: [
         { audience: "MEMBERS", receiverId: null },
-        { audience: "STAFF" },
+        { audience: "STAFF", type: { $in: MEMBER_VISIBLE_STAFF_TYPES } }, // ✅ CHANGE — blanket clause hataya
         { receiverId: memberId, receiverModel: "MEMBER" },
       ],
     })
