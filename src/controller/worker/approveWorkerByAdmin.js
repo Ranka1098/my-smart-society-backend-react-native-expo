@@ -1,6 +1,6 @@
 // controller/workerController.js (add these)
 import WorkerProfile from "../../model/WorkerProfile.js";
-
+import { notifyAdminToStaff } from "../notifcation/notifyMembers.js";
 // ── ADMIN — SocietyStaff approve ──
 const approveWorkerByAdmin = async (req, res) => {
   try {
@@ -18,12 +18,10 @@ const approveWorkerByAdmin = async (req, res) => {
         .json({ success: false, message: "Worker request nahi mila" });
     }
     if (worker.status !== "PendingApproval") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: `Ye request already ${worker.status} hai`,
-        });
+      return res.status(400).json({
+        success: false,
+        message: `Ye request already ${worker.status} hai`,
+      });
     }
 
     worker.status = "Approved";
@@ -33,12 +31,25 @@ const approveWorkerByAdmin = async (req, res) => {
     await worker.save();
 
     // ── guard ko notify — optional, non-fatal ──
+
+    // ── guard ko notify ──
     try {
       const io = req.app.get("io");
+      await notifyAdminToStaff({
+        io,
+        buildingCode,
+        buildingId: worker.buildingId || null,
+        type: "WORKER_APPROVED",
+        title: "Worker Approved",
+        message: `${worker.name} (${worker.category}) approve ho gaya hai`,
+        referenceId: worker._id,
+        referenceModel: "WorkerProfile",
+        data: { workerId: worker._id.toString(), status: "Approved" },
+      });
       io.to(`guard_${buildingCode}`).emit("worker_status_updated", {
         workerId: worker._id,
         status: "Approved",
-      });
+      }); // ⛔ ye line same rehne do — PreApprovedDetail live update ke liye
     } catch (e) {
       console.error("notify error (non-fatal):", e.message);
     }

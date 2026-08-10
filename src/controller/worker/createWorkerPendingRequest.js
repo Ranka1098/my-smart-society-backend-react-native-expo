@@ -5,6 +5,7 @@ import Member from "../../model/member.js";
 import { sendFCM } from "../notifcation/sendFcmNotification.js";
 import sharp from "sharp";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
+import { notifyWorkerToAdmin } from "../notifcation/notifyMembers.js";
 
 const createWorkerPendingRequest = async (req, res) => {
   try {
@@ -87,6 +88,7 @@ const createWorkerPendingRequest = async (req, res) => {
       const io = req.app.get("io");
 
       if (workerType === "FlatStaff") {
+        // ⛔ ye poora block same rehne do — koi change nahi
         const members = await Member.find({
           buildingCode,
           unitNo: flatNo,
@@ -104,22 +106,18 @@ const createWorkerPendingRequest = async (req, res) => {
           );
         }
       } else {
-        io.to(`admin_${buildingCode}`).emit("worker_pending_request", {
-          worker,
+        // ✅ CHANGE — ab proper DB Notification banega (bell icon + count me aayega)
+        await notifyWorkerToAdmin({
+          io,
+          buildingCode,
+          buildingId: worker.buildingId || null,
+          type: "WORKER_APPROVAL_PENDING", // ✅ ADD — bell/DB me sahi type jayega
+          title: "Naya Society Staff Approval",
+          message: `${name} (${category}) ne society staff request bheji hai`,
+          referenceId: worker._id,
+          referenceModel: "WorkerProfile",
+          data: { workerId: worker._id.toString(), workerType, category },
         });
-
-        const admins = await Admin.find({ buildingCode }).select(
-          "_id fcmToken"
-        );
-        const tokens = admins.map((a) => a.fcmToken).filter(Boolean);
-        if (tokens.length) {
-          await sendFCM(
-            tokens,
-            "Naya Society Staff Approval",
-            `${name} (${category}) ne society staff request bheji hai`,
-            { type: "WORKER_PENDING", workerId: String(worker._id) }
-          );
-        }
       }
     } catch (notifyErr) {
       console.error("worker notify error (non-fatal):", notifyErr.message);

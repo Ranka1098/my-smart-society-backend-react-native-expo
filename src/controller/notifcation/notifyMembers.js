@@ -228,7 +228,7 @@ export async function notifyMemberToAdmin({
     referenceId,
     referenceModel,
     data,
-    senderId,             // ✅ CHANGE — receiverId nahi
+    senderId, // ✅ CHANGE — receiverId nahi
     senderModel: "MEMBER", // ✅ CHANGE — receiverModel nahi
   });
 }
@@ -333,8 +333,62 @@ export async function notifyStaffToAdmin({
     referenceId,
     referenceModel,
     data,
-    senderId,            // ✅ CHANGE
+    senderId, // ✅ CHANGE
     senderModel: "STAFF", // ✅ CHANGE
+  });
+}
+
+// notifyMembers.js — add at end, koi existing function change nahi
+
+// ─── 8. Worker → Admin (society staff approval) ────────────────────────────
+export async function notifyWorkerToAdmin({
+  io,
+  buildingCode,
+  buildingId,
+  type,
+  title,
+  message,
+  referenceId = null,
+  referenceModel = "WorkerProfile",
+  data = {},
+}) {
+  return createAndSend({
+    io,
+    buildingCode,
+    buildingId,
+    type,
+    audience: "ADMIN",
+    title,
+    message,
+    referenceId,
+    referenceModel,
+    data,
+  });
+}
+
+// ─── 9. Admin → Staff (worker approval decision) ───────────────────────────
+export async function notifyAdminToStaff({
+  io,
+  buildingCode,
+  buildingId,
+  type,
+  title,
+  message,
+  referenceId = null,
+  referenceModel = null,
+  data = {},
+}) {
+  return createAndSend({
+    io,
+    buildingCode,
+    buildingId,
+    type,
+    audience: "STAFF",
+    title,
+    message,
+    referenceId,
+    referenceModel,
+    data,
   });
 }
 
