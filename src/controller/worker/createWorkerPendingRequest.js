@@ -5,7 +5,10 @@ import Member from "../../model/member.js";
 import { sendFCM } from "../notifcation/sendFcmNotification.js";
 import sharp from "sharp";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
-import { notifyWorkerToAdmin } from "../notifcation/notifyMembers.js";
+import {
+  notifyWorkerToAdmin,
+  notifyWorkerToMembers,
+} from "../notifcation/notifyMembers.js"; // ✅ CHANGE
 
 const createWorkerPendingRequest = async (req, res) => {
   try {
@@ -88,30 +91,36 @@ const createWorkerPendingRequest = async (req, res) => {
       const io = req.app.get("io");
 
       if (workerType === "FlatStaff") {
-        // ⛔ ye poora block same rehne do — koi change nahi
+        // ✅ CHANGE — ab proper DB Notification banega (member bell icon + count me aayega)
         const members = await Member.find({
           buildingCode,
           unitNo: flatNo,
         }).select("_id fcmToken");
+
+        await notifyWorkerToMembers({
+          io,
+          buildingCode,
+          buildingId: worker.buildingId || null,
+          type: "WORKER_APPROVAL_PENDING",
+          title: "Naya Worker Approval",
+          message: `${name} (${category}) ne aapke flat ke liye request bheji hai`,
+          referenceId: worker._id,
+          referenceModel: "WorkerProfile",
+          data: { workerId: worker._id.toString(), workerType, category },
+          members,
+        });
+
+        // ⛔ raw event same rehne do — koi aur screen isse listen kar rahi ho to
         members.forEach((m) => {
           io.to(`member_${m._id}`).emit("worker_pending_request", { worker });
         });
-        const tokens = members.map((m) => m.fcmToken).filter(Boolean);
-        if (tokens.length) {
-          await sendFCM(
-            tokens,
-            "Naya Worker Approval",
-            `${name} (${category}) ne aapke flat ke liye request bheji hai`,
-            { type: "WORKER_PENDING", workerId: String(worker._id) }
-          );
-        }
       } else {
-        // ✅ CHANGE — ab proper DB Notification banega (bell icon + count me aayega)
+        // ✅ ab proper DB Notification banega (admin bell icon + count me aayega)
         await notifyWorkerToAdmin({
           io,
           buildingCode,
           buildingId: worker.buildingId || null,
-          type: "WORKER_APPROVAL_PENDING", // ✅ ADD — bell/DB me sahi type jayega
+          type: "WORKER_APPROVAL_PENDING",
           title: "Naya Society Staff Approval",
           message: `${name} (${category}) ne society staff request bheji hai`,
           referenceId: worker._id,

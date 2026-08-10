@@ -1,7 +1,7 @@
-
-// ── MEMBER — FlatStaff approve ──
 import WorkerProfile from "../../model/WorkerProfile.js";
- const approveWorkerByMember = async (req, res) => {
+import { notifyAdminToStaff } from "../notifcation/notifyMembers.js"; // ✅ NAYA import (function generic hai, sirf naam admin-specific hai)
+
+const approveWorkerByMember = async (req, res) => {
   try {
     const { workerId } = req.params;
     const buildingCode = req.buildingCode;
@@ -14,10 +14,17 @@ import WorkerProfile from "../../model/WorkerProfile.js";
       flatNo,
     });
     if (!worker) {
-      return res.status(404).json({ success: false, message: "Worker request nahi mila" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Worker request nahi mila" });
     }
     if (worker.status !== "PendingApproval") {
-      return res.status(400).json({ success: false, message: `Ye request already ${worker.status} hai` });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: `Ye request already ${worker.status} hai`,
+        });
     }
 
     worker.status = "Approved";
@@ -28,7 +35,21 @@ import WorkerProfile from "../../model/WorkerProfile.js";
 
     try {
       const io = req.app.get("io");
-      io.to(`guard_${buildingCode}`).emit("worker_status_updated", { workerId: worker._id, status: "Approved" });
+      await notifyAdminToStaff({
+        io,
+        buildingCode,
+        buildingId: worker.buildingId || null,
+        type: "WORKER_APPROVED",
+        title: "Worker Approved",
+        message: `${worker.name} (${worker.category}) approve ho gaya hai`,
+        referenceId: worker._id,
+        referenceModel: "WorkerProfile",
+        data: { workerId: worker._id.toString(), status: "Approved" },
+      });
+      io.to(`guard_${buildingCode}`).emit("worker_status_updated", {
+        workerId: worker._id,
+        status: "Approved",
+      }); // ⛔ same rehne do
     } catch (e) {
       console.error("notify error (non-fatal):", e.message);
     }
@@ -36,7 +57,9 @@ import WorkerProfile from "../../model/WorkerProfile.js";
     return res.status(200).json({ success: true, worker });
   } catch (err) {
     console.error("approveWorkerByMember error:", err);
-    return res.status(500).json({ success: false, message: err.message || "Server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: err.message || "Server error" });
   }
 };
-export default approveWorkerByMember
+export default approveWorkerByMember;

@@ -392,6 +392,64 @@ export async function notifyAdminToStaff({
   });
 }
 
+// ─── 10. Worker → Specific Members (flat staff approval request) ───────────
+export async function notifyWorkerToMembers({
+  io,
+  buildingCode,
+  buildingId,
+  type = "WORKER_APPROVAL_PENDING",
+  title,
+  message,
+  referenceId = null,
+  referenceModel = "WorkerProfile",
+  data = {},
+  members, // [{ _id, fcmToken }]
+}) {
+  const notifications = [];
+
+  for (const m of members) {
+    const notification = await Notification.create({
+      buildingCode,
+      buildingId,
+      type,
+      audience: "SPECIFIC_MEMBER",
+      receiverId: m._id,
+      receiverModel: "MEMBER",
+      title,
+      message,
+      referenceId,
+      referenceModel,
+      data,
+    });
+    notifications.push(notification);
+
+    io.to(`member_${m._id.toString()}`).emit("notification", {
+      _id: notification._id.toString(),
+      type,
+      title,
+      message,
+      data,
+      isRead: false,
+      createdAt: notification.createdAt,
+    });
+
+    // ✅ CHANGE — per-member FCM, apne khud ke _id ke saath
+    if (m.fcmToken) {
+      try {
+        await sendFCM([m.fcmToken], title, message, {
+          ...data,
+          type,
+          _id: notification._id.toString(), // ✅ ab sahi real DB id jayega
+        });
+      } catch (fcmErr) {
+        console.error("FCM send failed (worker→member):", fcmErr.message);
+      }
+    }
+  }
+
+  return notifications;
+}
+
 // ─── 7. Staff → Specific Member (guest approve/reject decision) ───────────
 export async function notifyStaffToMember({
   io,
