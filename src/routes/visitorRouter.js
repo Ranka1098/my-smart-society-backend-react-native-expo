@@ -11,6 +11,7 @@ import emergencyExit from "../controller/visitor/emergencyExit.js";
 import memberPendingVisitor from "../controller/visitor/memberPendingVisitor.js";
 import getGuardDashboard from "../controller/visitor/getGuardDashboard.js";
 import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
+import checkFlatExists from "../controller/visitor/checkFlatExists.js";
 const visitorRouter = express.Router();
 
 visitorRouter.post(
@@ -27,6 +28,8 @@ visitorRouter.post(
   upload.single("photo"),
   emergencyExit
 );
+
+visitorRouter.get("/staff/checkFlat", staffAuth, checkFlatExists);
 visitorRouter.post(
   "/finalizeEntry",
   staffAuth,
