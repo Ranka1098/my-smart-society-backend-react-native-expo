@@ -12,6 +12,7 @@ const createPreApproved = async (req, res) => {
       name,
       mobile,
       purpose,
+      visitDate, // ✅ ADD — destructure missing tha
       timeSlot,
     } = req.body;
 
@@ -23,6 +24,8 @@ const createPreApproved = async (req, res) => {
       name,
       mobile,
       purpose,
+      visitDate, // ✅ ADD — save missing tha
+      timeSlot, // ✅ ADD — save missing tha
       respondedBy: memberId,
       status: "Pending",
       verificationMethod: "OTP",
@@ -33,15 +36,15 @@ const createPreApproved = async (req, res) => {
     const member = await Member.findById(memberId).select("name");
     const io = req.app.get("io");
 
-    // ✅ NEW: guard ke PreApprovedDetail me turant dikhe
     io.to(`guard_${buildingCode}`).emit("new_visitor_request", {
       _id: visitor._id,
       name: visitor.name,
       mobile: visitor.mobile,
       purpose: visitor.purpose,
       flatNo: visitor.flatNo,
-      verificationMethod: visitor.verificationMethod, // ✅ OTP button ke liye zaroori
-      timeSlot,
+      verificationMethod: visitor.verificationMethod,
+      visitDate: visitor.visitDate, // ✅ CHANGE — visitor se lo, req.body se nahi (consistency)
+      timeSlot: visitor.timeSlot, // ✅ CHANGE
       respondedBy: { _id: memberId, name: member?.name },
       source: "socket",
     });
@@ -62,7 +65,10 @@ const createPreApproved = async (req, res) => {
         mobile,
         purpose,
         flatNo,
-        timeSlot,
+        visitDate: visitor.visitDate, // ✅ ADD
+        timeSlot: visitor.timeSlot,
+        verificationMethod: visitor.verificationMethod,
+        respondedBy: { _id: memberId, name: member?.name },
         approvedByMember: member?.name || "Member",
       },
     });

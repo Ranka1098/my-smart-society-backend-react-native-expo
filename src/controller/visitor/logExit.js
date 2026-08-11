@@ -1,9 +1,10 @@
 import Visitor from "../../model/Visitor.js";
-import memberModel from "../../model/member.js"; // ✅ ADD
+import memberModel from "../../model/member.js";
 import {
   notifyWorkerToMembers,
   notifyWorkerToAdmin,
-} from "../../controller/notifcation/notifyMembers.js"; // ✅ ADD — apna actual path
+  notifyStaffToMember, // ✅ ADD
+} from "../../controller/notifcation/notifyMembers.js";
 
 const logExit = async (req, res) => {
   try {
@@ -18,11 +19,12 @@ const logExit = async (req, res) => {
         .json({ success: false, message: "Visitor not found" });
     }
 
+    const io = req.app.get("io");
+
     // ══════════════════════════════════════════════
-    // ✅ ADD — WORKER EXIT NOTIFICATION
+    // WORKER EXIT
     // ══════════════════════════════════════════════
     if (visitor.verificationMethod === "PreApprovedWorker") {
-      const io = req.app.get("io");
       const notifData = {
         visitorId: visitor._id.toString(),
         name: visitor.name,
@@ -63,6 +65,42 @@ const logExit = async (req, res) => {
           });
         }
       }
+    }
+    // ══════════════════════════════════════════════
+    // ✅ ADD — GUEST EXIT (respondedBy wale, jo member ne allow kiya tha)
+    // ══════════════════════════════════════════════
+    else if (visitor.respondedBy) {
+      const member = await memberModel
+        .findById(visitor.respondedBy)
+        .select("fcmToken");
+
+      io.to(`member_${visitor.respondedBy}`).emit("visitor_status_update", {
+        visitorId: visitor._id,
+        status: "Exited",
+      });
+
+      await notifyStaffToMember({
+        io,
+        buildingCode: visitor.buildingCode,
+        memberId: visitor.respondedBy,
+        memberFcmToken: member?.fcmToken,
+        type: "GUEST_EXIT",
+        title: "Guest Exited 🚪",
+        message: `${visitor.name} exit ho gaya (${new Date(
+          visitor.exitTime
+        ).toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })})`,
+        referenceId: visitor._id,
+        data: {
+          visitorId: visitor._id,
+          status: "Exited",
+          exitTime: visitor.exitTime,
+          name: visitor.name,
+          purpose: visitor.purpose,
+        },
+      });
     }
 
     return res

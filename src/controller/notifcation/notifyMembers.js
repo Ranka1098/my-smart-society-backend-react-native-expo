@@ -300,9 +300,9 @@ export async function notifyMemberToStaff({
     data,
   });
 
-  // ✅ guard ke live "PreApprovedDetail" screen ke liye alag raw event —
-  // taki list turant update ho, sirf generic notification bell nahi
+  // ✅ guard ke live "PreApprovedDetail" screen ke liye alag raw event
   io.to(`guard_${buildingCode}`).emit("new_visitor_request", {
+    _id: referenceId, // ✅ ADD — frontend agar _id se list render/key karta hai
     ...data,
     source: "socket",
   });
@@ -480,6 +480,7 @@ export async function notifyStaffToMember({
   io.to(`member_${memberId}`).emit("guest_status_updated", {
     title,
     message,
+    type, // ✅ ADD
     data, // { visitorId, status, approvedAt/rejectedAt, guardName, name, purpose }
   });
 
