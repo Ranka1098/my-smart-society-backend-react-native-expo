@@ -82,6 +82,7 @@ const addFamilyMember = async (req, res) => {
       memberType: primaryMember.memberType,
       memberStatus: primaryMember.memberStatus,
       buildingCode: primaryMember.buildingCode,
+      buildingId: primaryMember.buildingId, // ✅ ADD
       buildingName: primaryMember.buildingName,
       unitNo: primaryMember.unitNo,
       shopName: primaryMember.shopName || null,

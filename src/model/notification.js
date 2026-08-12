@@ -46,6 +46,8 @@ const notificationSchema = new mongoose.Schema(
         "WORKER_EXIT",
         "EMERGENCY_EXIT",
         "GUEST_EXIT",
+        "FAMILY_MEMBER_APPROVED", // ✅ NAYA
+        "FAMILY_MEMBER_REJECTED",
       ],
       required: true,
     },

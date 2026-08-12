@@ -177,7 +177,53 @@ export async function notifyAllMembersAndStaff({
     data,
   });
 }
+// ─── 11. Admin → Specific Member (family approve/reject decision) ─────────
+export async function notifyAdminToMember({
+  io,
+  buildingCode,
+  buildingId,
+  memberId,
+  memberFcmToken,
+  type, // "FAMILY_MEMBER_APPROVED" | "FAMILY_MEMBER_REJECTED"
+  title,
+  message,
+  data = {},
+  referenceId = null,
+}) {
+  const notification = await Notification.create({
+    buildingCode,
+    buildingId,
+    type,
+    audience: "SPECIFIC_MEMBER",
+    receiverId: memberId,
+    receiverModel: "MEMBER",
+    title,
+    message,
+    data,
+    referenceId,
+    referenceModel: "Member",
+  });
 
+  io.to(`member_${memberId}`).emit("notification", {
+    _id: notification._id.toString(),
+    type,
+    title,
+    message,
+    data,
+    isRead: false,
+    createdAt: notification.createdAt,
+  });
+
+  if (memberFcmToken) {
+    await sendFCM([memberFcmToken], title, message, {
+      ...data,
+      type,
+      _id: notification._id.toString(),
+    });
+  }
+
+  return notification;
+}
 // ─── 3. Admin → All Members only ───────────────────────────────────────────
 export async function notifyAllMembers({
   io,
