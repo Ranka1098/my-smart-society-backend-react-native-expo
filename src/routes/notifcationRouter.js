@@ -24,6 +24,11 @@ import superAdminNotifications from "../controller/notifcation/superAdmin_notifi
 import getSuperAdminUnreadNotificationCount from "../controller/notifcation/superAdmin_notification/getSuperAdminUnreadNotificationCount.js";
 import markSingleSuperAdminNotificationRead from "../controller/notifcation/superAdmin_notification/markSingleSuperAdminNotificationRead.js";
 
+// family member
+import familyMemberNotifications from "../controller/notifcation/familyMember_notification/familyMemberNotifications.js";
+import getUnreadFamilyNotificationCount from "../controller/notifcation/familyMember_notification/getUnreadFamilyNotificationCount.js";
+import markSingleFamilyNotificationRead from "../controller/notifcation/familyMember_notification/markSingleFamilyNotificationRead.js";
+
 const notifcationRouter = express.Router();
 
 // ── ADMIN ──
@@ -79,6 +84,22 @@ notifcationRouter.patch(
   "/superAdmin/notifications/:id/read",
   superAdminAuth,
   markSingleSuperAdminNotificationRead
+);
+
+notifcationRouter.get(
+  "/familyMemberNotifications",
+  memberAuth,
+  familyMemberNotifications
+);
+notifcationRouter.patch(
+  "/familyNotification/:id/read",
+  memberAuth,
+  markSingleFamilyNotificationRead
+);
+notifcationRouter.get(
+  "/familyNotification/unreadCount",
+  memberAuth,
+  getUnreadFamilyNotificationCount
 );
 
 export default notifcationRouter;

@@ -1,4 +1,5 @@
 import Visitor from "../../model/Visitor.js";
+import NotificationModel from "../../model/notification.js"; // ✅ NAYA — path check karo
 
 const memberApproveOrDeny = async (req, res) => {
   try {
@@ -48,23 +49,44 @@ const memberApproveOrDeny = async (req, res) => {
     // ── respondedBy populate karo taaki fullName mile guard ko ──
     await visitor.populate("respondedBy", "fullName");
 
-const io = req.app.get("io");
+    const io = req.app.get("io");
 
-io.to(`guard_${visitor.guardId}`).emit("visitor_decision", {
-  visitorId: visitor._id,
-  status: visitor.status,
-  action,
-  respondedBy: visitor.respondedBy,
-});
+    io.to(`guard_${visitor.guardId}`).emit("visitor_decision", {
+      visitorId: visitor._id,
+      status: visitor.status,
+      action,
+      respondedBy: visitor.respondedBy,
+    });
 
-// ✅ NEW: sab notified flat-members ko bhi batao, taki dusre members ka modal band ho
-(visitor.notifiedMembers || []).forEach((mId) => {
-  io.to(`member_${mId}`).emit("visitor_decided", {
-    visitorId: visitor._id,
-    status: visitor.status,
-    decidedBy: memberId,
-  });
-});
+    // ✅ NEW: sab notified flat-members ko bhi batao, taki dusre members ka modal band ho
+    (visitor.notifiedMembers || []).forEach((mId) => {
+      io.to(`member_${mId}`).emit("visitor_decided", {
+        visitorId: visitor._id,
+        status: visitor.status,
+        decidedBy: memberId,
+      });
+    });
+
+    // ✅ NAYA — flat ke sabhi notified members ko DB notification bhi save karo
+    const decidedByName = visitor.respondedBy?.fullName || "Member";
+    await NotificationModel.insertMany(
+      (visitor.notifiedMembers || []).map((mId) => ({
+        buildingCode: visitor.buildingCode,
+        type: action === "approve" ? "GUEST_APPROVED" : "GUEST_REJECTED",
+        audience: "SPECIFIC_MEMBER",
+        receiverId: mId,
+        receiverModel: "MEMBER",
+        title: action === "approve" ? "Guest Approved ✅" : "Guest Denied ❌",
+        message:
+          action === "approve"
+            ? `${visitor.name} ko ${decidedByName} ne approve kiya.`
+            : `${visitor.name} ko ${decidedByName} ne deny kiya.`,
+        referenceId: visitor._id,
+        referenceModel: "Visitor",
+        data: { flatNo: visitor.flatNo, purpose: visitor.purpose },
+      }))
+    );
+
     return res.status(200).json({
       success: true,
       message: action === "approve" ? "Approved ✅" : "Denied ❌",

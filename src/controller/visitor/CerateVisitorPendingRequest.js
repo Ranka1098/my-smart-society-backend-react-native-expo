@@ -3,7 +3,7 @@ import Member from "../../model/member.js";
 import { sendFCM } from "../notifcation/sendFcmNotification.js";
 import sharp from "sharp";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
-
+import NotificationModel from "../../model/notification.js"; // path check karo
 const NOTIFICATION_TTL = 60;
 
 const createVisitorPendingRequest = async (req, res) => {
@@ -55,6 +55,21 @@ const createVisitorPendingRequest = async (req, res) => {
       notificationExpiresAt: expiresAt,
       entryTime: now,
     });
+
+    await NotificationModel.insertMany(
+      members.map((m) => ({
+        buildingCode,
+        type: "VISITOR_ARRIVED",
+        audience: "SPECIFIC_MEMBER",
+        receiverId: m._id,
+        receiverModel: "MEMBER",
+        title: "Visitor at Gate",
+        message: `${name} aaya hai, approve/deny karo.`,
+        referenceId: visitor._id,
+        referenceModel: "Visitor",
+        data: { flatNo, purpose, photoUrl: photoUrl || "" },
+      }))
+    );
 
     const io = req.app.get("io");
 
