@@ -1,17 +1,19 @@
 import WorkerProfile from "../../model/WorkerProfile.js";
-import { notifyAdminToStaff } from "../notifcation/notifyMembers.js"; // ✅ NAYA import (function generic hai, sirf naam admin-specific hai)
+import { notifyAdminToStaff } from "../notifcation/notifyMembers.js";
 
 const approveWorkerByMember = async (req, res) => {
   try {
     const { workerId } = req.params;
     const buildingCode = req.buildingCode;
     const flatNo = String(req.member.unitNo || "").trim();
+    const memberType = req.member.memberType; // ✅ NAYA
 
     const worker = await WorkerProfile.findOne({
       _id: workerId,
       buildingCode,
       workerType: "FlatStaff",
       flatNo,
+      ...(memberType ? { memberType } : {}), // ✅ NAYA — sirf apne type ka worker approve kar sake
     });
     if (!worker) {
       return res
@@ -19,12 +21,10 @@ const approveWorkerByMember = async (req, res) => {
         .json({ success: false, message: "Worker request nahi mila" });
     }
     if (worker.status !== "PendingApproval") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: `Ye request already ${worker.status} hai`,
-        });
+      return res.status(400).json({
+        success: false,
+        message: `Ye request already ${worker.status} hai`,
+      });
     }
 
     worker.status = "Approved";
@@ -49,7 +49,7 @@ const approveWorkerByMember = async (req, res) => {
       io.to(`guard_${buildingCode}`).emit("worker_status_updated", {
         workerId: worker._id,
         status: "Approved",
-      }); // ⛔ same rehne do
+      });
     } catch (e) {
       console.error("notify error (non-fatal):", e.message);
     }

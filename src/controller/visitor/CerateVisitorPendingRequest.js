@@ -8,7 +8,7 @@ const NOTIFICATION_TTL = 60;
 
 const createVisitorPendingRequest = async (req, res) => {
   try {
-    const { buildingCode, name, mobile, purpose, flatNo } = req.body;
+    const { buildingCode, name, mobile, purpose, flatNo, memberType } = req.body; // ✅ memberType destructure
     const guardId = req.staff._id;
 
     if (!buildingCode || !name || !purpose || !flatNo) {
@@ -36,6 +36,7 @@ const createVisitorPendingRequest = async (req, res) => {
     const members = await Member.find({
       buildingCode,
       unitNo: flatNo,
+      ...(memberType ? { memberType } : {}), // Flat bhejo to sirf Flat, Shop bhejo to sirf Shop
     }).select("_id fcmToken");
 
     const now = new Date();

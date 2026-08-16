@@ -1,20 +1,18 @@
-// controller/workerController.js
 import WorkerProfile from "../../model/WorkerProfile.js";
 import Admin from "../../model/admin.js";
 import Member from "../../model/member.js";
 import { sendFCM } from "../notifcation/sendFcmNotification.js";
-import sharp from "sharp";
+import sharp from "sharp"; // ✅ ADD
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
 import {
   notifyWorkerToAdmin,
   notifyWorkerToMembers,
-} from "../notifcation/notifyMembers.js"; // ✅ CHANGE
-
+} from "../notifcation/notifyMembers.js";
 const createWorkerPendingRequest = async (req, res) => {
   try {
-    const { name, mobile, workerType, category, flatNo } = req.body;
+    const { name, mobile, workerType, category, flatNo, memberType } = req.body; // ✅ memberType add
     const buildingCode = req.buildingCode;
-
+    console.log("RECEIVED:", { flatNo, memberType, workerType });
     if (!buildingCode) {
       return res
         .status(401)
@@ -46,7 +44,6 @@ const createWorkerPendingRequest = async (req, res) => {
         .json({ success: false, message: "Only image files allowed" });
     }
 
-    // ── Cloudinary upload (visitor wala pattern) ──
     const compressed = await sharp(req.file.buffer)
       .resize({ width: 1200, withoutEnlargement: true })
       .jpeg({ quality: 70 })
@@ -67,6 +64,7 @@ const createWorkerPendingRequest = async (req, res) => {
       worker.workerType = workerType;
       worker.category = category;
       worker.flatNo = workerType === "FlatStaff" ? flatNo : undefined;
+      worker.memberType = workerType === "FlatStaff" ? memberType : undefined; // ✅ NAYA
       worker.photoUrl = photoUrl;
       worker.status = "PendingApproval";
       worker.approvedBy = undefined;
@@ -81,22 +79,26 @@ const createWorkerPendingRequest = async (req, res) => {
         workerType,
         category,
         flatNo: workerType === "FlatStaff" ? flatNo : undefined,
+        memberType: workerType === "FlatStaff" ? memberType : undefined, // ✅ NAYA
         photoUrl,
         status: "PendingApproval",
       });
     }
 
-    // ── notify — alag try/catch ──
     try {
       const io = req.app.get("io");
 
       if (workerType === "FlatStaff") {
-        // ✅ CHANGE — ab proper DB Notification banega (member bell icon + count me aayega)
         const members = await Member.find({
           buildingCode,
           unitNo: flatNo,
+          ...(memberType ? { memberType } : {}),
         }).select("_id fcmToken");
-
+        console.log(
+          "MATCHED MEMBERS:",
+          members.length,
+          members.map((m) => m._id)
+        );
         await notifyWorkerToMembers({
           io,
           buildingCode,
@@ -110,12 +112,10 @@ const createWorkerPendingRequest = async (req, res) => {
           members,
         });
 
-        // ⛔ raw event same rehne do — koi aur screen isse listen kar rahi ho to
         members.forEach((m) => {
           io.to(`member_${m._id}`).emit("worker_pending_request", { worker });
         });
       } else {
-        // ✅ ab proper DB Notification banega (admin bell icon + count me aayega)
         await notifyWorkerToAdmin({
           io,
           buildingCode,

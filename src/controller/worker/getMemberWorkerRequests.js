@@ -3,11 +3,19 @@ import WorkerProfile from "../../model/WorkerProfile.js";
 const getMemberWorkerRequests = async (req, res) => {
   try {
     const buildingCode = req.member.buildingCode;
-    const flatNo = String(req.member.unitNo || "").trim(); // FIX — type-safe string
-    console.log(flatNo);
+    const flatNo = String(req.member.unitNo || "").trim();
+    const memberType = req.member.memberType; // ✅ NAYA
+    console.log(flatNo, memberType);
     const { status } = req.query;
 
-    console.log("DEBUG buildingCode:", buildingCode, "| flatNo:", flatNo);
+    console.log(
+      "DEBUG buildingCode:",
+      buildingCode,
+      "| flatNo:",
+      flatNo,
+      "| memberType:",
+      memberType
+    );
 
     if (!flatNo) {
       return res
@@ -15,7 +23,12 @@ const getMemberWorkerRequests = async (req, res) => {
         .json({ success: false, message: "Member ka flat number nahi mila" });
     }
 
-    const filter = { buildingCode, workerType: "FlatStaff", flatNo };
+    const filter = {
+      buildingCode,
+      workerType: "FlatStaff",
+      flatNo,
+      ...(memberType ? { memberType } : {}), // ✅ NAYA — sirf sahi type ke workers
+    };
     if (status) filter.status = status;
     else filter.status = "PendingApproval";
 
