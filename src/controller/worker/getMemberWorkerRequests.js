@@ -4,18 +4,8 @@ const getMemberWorkerRequests = async (req, res) => {
   try {
     const buildingCode = req.member.buildingCode;
     const flatNo = String(req.member.unitNo || "").trim();
-    const memberType = req.member.memberType; // ✅ NAYA
-    console.log(flatNo, memberType);
+    const memberType = req.member.memberType;
     const { status } = req.query;
-
-    console.log(
-      "DEBUG buildingCode:",
-      buildingCode,
-      "| flatNo:",
-      flatNo,
-      "| memberType:",
-      memberType
-    );
 
     if (!flatNo) {
       return res
@@ -27,10 +17,9 @@ const getMemberWorkerRequests = async (req, res) => {
       buildingCode,
       workerType: "FlatStaff",
       flatNo,
-      ...(memberType ? { memberType } : {}), // ✅ NAYA — sirf sahi type ke workers
+      ...(memberType ? { memberType } : {}),
     };
-    if (status) filter.status = status;
-    else filter.status = "PendingApproval";
+    if (status) filter.status = status; // ✅ CHANGE — status na diya to sab status aayenge
 
     const workers = await WorkerProfile.find(filter).sort({ createdAt: -1 });
 
