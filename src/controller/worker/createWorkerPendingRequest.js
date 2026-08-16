@@ -105,7 +105,9 @@ const createWorkerPendingRequest = async (req, res) => {
           buildingId: worker.buildingId || null,
           type: "WORKER_APPROVAL_PENDING",
           title: "Naya Worker Approval",
-          message: `${name} (${category}) ne aapke flat ke liye request bheji hai`,
+          message: `${name} (${category}) ne aapke ${
+            memberType === "Shop" ? "shop" : "flat"
+          } ke liye request bheji hai`,
           referenceId: worker._id,
           referenceModel: "WorkerProfile",
           data: { workerId: worker._id.toString(), workerType, category },

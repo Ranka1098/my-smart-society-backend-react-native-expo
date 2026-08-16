@@ -41,7 +41,7 @@ const approveWorkerByAdmin = async (req, res) => {
         buildingId: worker.buildingId || null,
         type: "WORKER_APPROVED",
         title: "Worker Approved",
-        message: `${worker.name} (${worker.category}) approve ho gaya hai`,
+        message: `${worker.name} (${worker.category}) ko admin ne approve kardiya hai`,
         referenceId: worker._id,
         referenceModel: "WorkerProfile",
         data: { workerId: worker._id.toString(), status: "Approved" },
