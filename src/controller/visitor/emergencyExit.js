@@ -6,7 +6,8 @@ import { notifyWorkerToMembers } from "../../controller/notifcation/notifyMember
 
 const emergencyExit = async (req, res) => {
   try {
-    const { buildingCode, flatNo } = req.body;
+    const { buildingCode, flatNo, memberType } = req.body; // ✅ FIX — memberType accept karo
+
     const guardId = req.staff._id;
 
     if (!buildingCode || !flatNo) {
@@ -46,6 +47,7 @@ const emergencyExit = async (req, res) => {
       name: "Emergency Exit",
       purpose: "Other",
       flatNo,
+      memberType: memberType === "Shop" ? "Shop" : "Flat", // ✅ FIX — store karo
       guardId,
       status: "Exited",
       verificationMethod: "ForcedEntry",
@@ -56,14 +58,18 @@ const emergencyExit = async (req, res) => {
     });
 
     // ══════════════════════════════════════════════
-    // FLAT MEMBERS KO NOTIFY KARO
+    // FLAT/SHOP MEMBERS KO NOTIFY KARO
     // ══════════════════════════════════════════════
     const io = req.app.get("io");
     const members = await memberModel
-      .find({ buildingCode, unitNo: flatNo })
+      .find({
+        buildingCode,
+        unitNo: flatNo,
+        ...(memberType === "Shop" ? { memberType: "Shop" } : {}), // ✅ FIX — shop hi filter ho shop query me
+      })
       .select("_id fcmToken");
 
-    let flatMatched = true; // ✅ ADD
+    let flatMatched = true;
 
     if (members.length) {
       await notifyWorkerToMembers({
@@ -71,26 +77,29 @@ const emergencyExit = async (req, res) => {
         buildingCode,
         type: "EMERGENCY_EXIT",
         title: "Emergency Exit Logged",
-        message: `Guard ne Flat ${flatNo} ke liye emergency exit record kiya hai.`,
+        message: `Guard ne ${
+          memberType === "Shop" ? "Shop" : "Flat"
+        } ${flatNo} ke liye emergency exit record kiya hai.`, // ✅ FIX — Shop/Flat sahi bole
         referenceId: visitor._id,
         referenceModel: "Visitor",
         data: {
           visitorId: visitor._id.toString(),
           flatNo,
+          memberType: memberType === "Shop" ? "Shop" : "Flat", // ✅ FIX
           exitTime: visitor.exitTime,
           exitPhotoUrl,
         },
         members,
       });
     } else {
-      flatMatched = false; // ✅ ADD — koi notify nahi hua
+      flatMatched = false;
     }
 
     return res.status(201).json({
       success: true,
       message: "Emergency exit logged",
       data: visitor,
-      flatMatched, // ✅ ADD
+      flatMatched,
     });
   } catch (error) {
     console.error("emergencyExit error:", error);
