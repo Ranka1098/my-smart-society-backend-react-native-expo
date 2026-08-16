@@ -11,7 +11,7 @@ const quickWorkerEntry = async (req, res) => {
     const { workerId } = req.body;
     const buildingCode = req.buildingCode;
     const guardId = req.staff._id;
-    const io = req.app.get("io"); // ✅ CHANGE
+    const io = req.app.get("io");
 
     if (!workerId) {
       return res
@@ -37,6 +37,8 @@ const quickWorkerEntry = async (req, res) => {
       purpose: worker.category,
       photoUrl: worker.photoUrl,
       flatNo: worker.workerType === "FlatStaff" ? worker.flatNo : "Society",
+      memberType:
+        worker.workerType === "FlatStaff" ? worker.memberType : undefined, // ✅ NAYA
       guardId,
       status: "Approved",
       verificationMethod: "PreApprovedWorker",
@@ -44,22 +46,28 @@ const quickWorkerEntry = async (req, res) => {
       entryTime: new Date(),
     });
 
-    // ══════════════════════════════════════════════
-    // ✅ ADD — ENTRY NOTIFICATION
-    // ══════════════════════════════════════════════
     const notifData = {
       visitorId: visitor._id.toString(),
       name: worker.name,
       category: worker.category,
       flatNo: visitor.flatNo,
+      memberType: worker.memberType, // ✅ NAYA
       entryTime: visitor.entryTime,
     };
     const notifTitle = "Worker Entry";
-    const notifMessage = `${worker.name} (${worker.category}) ne entry ki hai.`;
+    const notifMessage = `${worker.name} (${worker.category}) ne ${
+      worker.workerType === "FlatStaff"
+        ? `${worker.memberType === "Shop" ? "Shop" : "Flat"} ${worker.flatNo}`
+        : "Society"
+    } me abhi entry ki hai.`;
 
     if (worker.workerType === "FlatStaff") {
       const members = await memberModel
-        .find({ buildingCode, unitNo: worker.flatNo })
+        .find({
+          buildingCode,
+          unitNo: worker.flatNo,
+          ...(worker.memberType ? { memberType: worker.memberType } : {}), // ✅ NAYA
+        })
         .select("_id fcmToken");
 
       if (members.length) {

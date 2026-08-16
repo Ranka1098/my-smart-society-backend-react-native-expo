@@ -3,7 +3,7 @@ import memberModel from "../../model/member.js";
 import {
   notifyWorkerToMembers,
   notifyWorkerToAdmin,
-  notifyStaffToMember, // ✅ ADD
+  notifyStaffToMember,
 } from "../../controller/notifcation/notifyMembers.js";
 
 const logExit = async (req, res) => {
@@ -30,10 +30,18 @@ const logExit = async (req, res) => {
         name: visitor.name,
         category: visitor.purpose,
         flatNo: visitor.flatNo,
+        memberType: visitor.memberType, // ✅ NAYA
         exitTime: visitor.exitTime,
       };
       const notifTitle = "Worker Exit";
-      const notifMessage = `${visitor.name} (${visitor.purpose}) exit ho gaya.`;
+      // ✅ FIX — "worker" nahi "visitor" use karo, field names bhi sahi karo
+      const notifMessage = `${visitor.name} (${visitor.purpose}) ne ${
+        visitor.flatNo === "Society"
+          ? "Society"
+          : `${visitor.memberType === "Shop" ? "Shop" : "Flat"} ${
+              visitor.flatNo
+            }`
+      } ne abhi exit kiya hai.`;
 
       if (visitor.flatNo === "Society") {
         await notifyWorkerToAdmin({
@@ -48,7 +56,11 @@ const logExit = async (req, res) => {
         });
       } else {
         const members = await memberModel
-          .find({ buildingCode: visitor.buildingCode, unitNo: visitor.flatNo })
+          .find({
+            buildingCode: visitor.buildingCode,
+            unitNo: visitor.flatNo,
+            ...(visitor.memberType ? { memberType: visitor.memberType } : {}), // ✅ NAYA
+          })
           .select("_id fcmToken");
 
         if (members.length) {
@@ -67,7 +79,7 @@ const logExit = async (req, res) => {
       }
     }
     // ══════════════════════════════════════════════
-    // ✅ ADD — GUEST EXIT (respondedBy wale, jo member ne allow kiya tha)
+    // GUEST EXIT
     // ══════════════════════════════════════════════
     else if (visitor.respondedBy) {
       const member = await memberModel
