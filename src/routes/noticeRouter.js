@@ -4,13 +4,38 @@ import adminAuth from "../middleware/adminAuth.js";
 import getNotice from "../controller/notice/getNotice.js";
 import deleteNotice from "../controller/notice/deleteNotice.js";
 import memberAuth from "../middleware/memberAuth.js";
-import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js"
+import staffAuth from "../middleware/staffAuth.js";
+import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
 const noticeRouter = express.Router();
 
-
-
-noticeRouter.post("/createNotice", adminAuth, checkBuildingSubscription, createNotice);
-noticeRouter.get("/admin/getNotice", adminAuth, checkBuildingSubscription, getNotice);
-noticeRouter.get("/member/getNotice", memberAuth, checkBuildingSubscription, getNotice);
-noticeRouter.delete("/deleteNotice/:id", adminAuth, checkBuildingSubscription, deleteNotice);
+noticeRouter.post(
+  "/createNotice",
+  adminAuth,
+  checkBuildingSubscription,
+  createNotice
+);
+noticeRouter.get(
+  "/admin/getNotice",
+  adminAuth,
+  checkBuildingSubscription,
+  getNotice
+);
+noticeRouter.get(
+  "/member/getNotice",
+  memberAuth,
+  checkBuildingSubscription,
+  getNotice
+);
+noticeRouter.get(
+  "/staff/getNotice",
+  staffAuth,
+  checkBuildingSubscription,
+  getNotice
+);
+noticeRouter.delete(
+  "/deleteNotice/:id",
+  adminAuth,
+  checkBuildingSubscription,
+  deleteNotice
+);
 export default noticeRouter;
