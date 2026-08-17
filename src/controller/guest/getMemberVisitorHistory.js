@@ -1,9 +1,8 @@
 import Visitor from "../../model/Visitor.js";
 
-// Member apne flat ke saare visitor dekh sake — jo bhi guard ne entry ki
 const getMemberVisitorHistory = async (req, res) => {
   try {
-    const { buildingCode, flatNo } = req.query;
+    const { buildingCode, flatNo, memberType } = req.query;
 
     if (!buildingCode || !flatNo) {
       return res
@@ -11,7 +10,19 @@ const getMemberVisitorHistory = async (req, res) => {
         .json({ success: false, message: "buildingCode aur flatNo required" });
     }
 
-    const list = await Visitor.find({ buildingCode, flatNo })
+    const list = await Visitor.find({
+      buildingCode,
+      flatNo,
+      ...(memberType === "Shop"
+        ? { memberType: "Shop" }
+        : {
+            $or: [
+              { memberType: "Flat" },
+              { memberType: { $exists: false } },
+              { memberType: null },
+            ],
+          }), // ✅ FIX — purane records (missing memberType) bhi match ho, sab purpose/type ke liye
+    })
       .sort({ entryTime: -1, createdAt: -1 })
       .limit(100)
       .populate("guardId", "name")

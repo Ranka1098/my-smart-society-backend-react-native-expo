@@ -49,11 +49,7 @@ const searchMembersForVisitor = async (req, res) => {
       const key = `${m.unitNo}__${m.memberType}`;
       if (!unitKeys.includes(key)) return; // sirf wahi group jo actual match se aaye
       if (!grouped[key])
-        grouped[key] = {
-          unitNo: m.unitNo,
-          memberType: m.memberType,
-          members: [],
-        };
+        grouped[key] = { unitNo: m.unitNo, memberType: m.memberType, members: [] };
       grouped[key].members.push(m);
     });
 

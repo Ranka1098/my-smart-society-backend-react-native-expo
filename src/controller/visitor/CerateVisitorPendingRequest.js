@@ -8,7 +8,8 @@ const NOTIFICATION_TTL = 60;
 
 const createVisitorPendingRequest = async (req, res) => {
   try {
-    const { buildingCode, name, mobile, purpose, flatNo, memberType } = req.body; // ✅ memberType destructure
+    const { buildingCode, name, mobile, purpose, flatNo, memberType } =
+      req.body; // ✅ memberType destructure
     const guardId = req.staff._id;
 
     if (!buildingCode || !name || !purpose || !flatNo) {
@@ -49,6 +50,7 @@ const createVisitorPendingRequest = async (req, res) => {
       purpose,
       photoUrl,
       flatNo,
+      memberType: memberType || "Flat",
       guardId,
       notifiedMembers: members.map((m) => m._id),
       status: "Pending",
@@ -86,6 +88,7 @@ const createVisitorPendingRequest = async (req, res) => {
           type: "VISITOR_APPROVAL",
           visitorId: visitor._id.toString(),
           flatNo,
+          memberType: memberType || "Flat", // ✅ FIX
           visitorName: name,
           purpose,
           photoUrl: photoUrl || "",
@@ -101,6 +104,7 @@ const createVisitorPendingRequest = async (req, res) => {
       purpose,
       photoUrl: photoUrl || null,
       flatNo,
+      memberType: memberType || "Flat",
       buildingCode,
       ttlSeconds: NOTIFICATION_TTL,
       expiresAt: expiresAt.toISOString(),
