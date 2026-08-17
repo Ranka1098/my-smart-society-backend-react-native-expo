@@ -8,15 +8,25 @@ const todayIST = () => {
   return ist.toISOString().split("T")[0];
 };
 
+const isValidDateStr = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+
 const getGuardDashboard = async (req, res) => {
   try {
     const { buildingCode, date } = req.query;
+
+    if (!buildingCode) {
+      return res
+        .status(400)
+        .json({ success: false, message: "buildingCode required" });
+    }
 
     // ✅ "date" IST calendar-day hai (frontend se "YYYY-MM-DD" aata).
     // Naya Date(date) server timezone (UTC on Render) me midnight bana deta,
     // jo IST se 5:30 peeche shift ho jaata — isliye din ka data 1 din piche
     // dikhta tha. Explicit IST offset (+05:30) laga ke sahi UTC instant banao.
-    const dateStr = date || todayIST();
+    // ✅ NAYA — agar frontend galat/invalid date bheje (device timezone bug
+    // ya kuch aur), fallback todayIST() pe — crash ya silent-wrong-date se bacho.
+    const dateStr = isValidDateStr(date) ? date : todayIST();
     const startOfDay = new Date(`${dateStr}T00:00:00.000+05:30`);
     const endOfDay = new Date(`${dateStr}T23:59:59.999+05:30`);
 
@@ -31,7 +41,7 @@ const getGuardDashboard = async (req, res) => {
     ] = await Promise.all([
       Visitor.countDocuments({
         buildingCode,
-        createdAt: { $gte: startOfDay, $lte: endOfDay }, // ✅ date-range filter
+        createdAt: { $gte: startOfDay, $lte: endOfDay },
       }),
       Visitor.find({
         buildingCode,
@@ -44,11 +54,10 @@ const getGuardDashboard = async (req, res) => {
       Visitor.find({
         buildingCode,
         status: { $in: ["Approved", "ForcedEntry"] },
-        createdAt: { $gte: startOfDay, $lte: endOfDay }, // ✅ date-range filter
+        createdAt: { $gte: startOfDay, $lte: endOfDay },
       })
         .sort({ entryTime: -1 })
         .limit(5),
-      // ✅ "currently inside" hamesha live state hai, purani date ke liye 0
       isToday
         ? Visitor.countDocuments({
             buildingCode,

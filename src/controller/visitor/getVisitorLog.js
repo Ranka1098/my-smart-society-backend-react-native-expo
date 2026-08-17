@@ -1,7 +1,7 @@
 import Visitor from "../../model/Visitor.js";
 const getVisitorLog = async (req, res) => {
   try {
-    const { buildingCode, date, status, flatNo } = req.query;
+    const { buildingCode, date, status, flatNo, memberType } = req.query; // ✅ ADD memberType
     if (!buildingCode) {
       return res
         .status(400)
@@ -11,19 +11,20 @@ const getVisitorLog = async (req, res) => {
     const filter = { buildingCode };
     if (status) filter.status = status;
     if (flatNo) filter.flatNo = flatNo;
+    if (memberType) filter.memberType = memberType; // ✅ NAYA
     if (date) {
-      const start = new Date(date);
-      const end = new Date(date);
-      end.setDate(end.getDate() + 1);
-      filter.entryTime = { $gte: start, $lt: end };
+      // ✅ FIX — IST calendar-day boundary explicit banao, UTC drift se bacho
+      const start = new Date(`${date}T00:00:00.000+05:30`);
+      const end = new Date(`${date}T23:59:59.999+05:30`);
+      filter.entryTime = { $gte: start, $lte: end };
     }
 
     const visitors = await Visitor.find(filter)
       .sort({ entryTime: -1 })
       .limit(100)
-      .populate("notifiedMembers", "fullName primaryPhone") // ✅ FIX — sahi field names
-      .populate("respondedBy", "fullName") // ✅ FIX — ye hi missing tha, isliye approve karne wale ka naam nahi aa raha tha
-      .populate("guardId", "name"); // ✅ NAYA — guard ka naam bhi chahiye ho to (Staff schema me workerName field hai, check kar lena)
+      .populate("notifiedMembers", "fullName primaryPhone")
+      .populate("respondedBy", "fullName")
+      .populate("guardId", "name");
 
     return res
       .status(200)
