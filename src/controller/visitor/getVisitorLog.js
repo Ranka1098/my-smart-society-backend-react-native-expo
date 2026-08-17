@@ -21,18 +21,14 @@ const getVisitorLog = async (req, res) => {
     const visitors = await Visitor.find(filter)
       .sort({ entryTime: -1 })
       .limit(100)
-      .populate("notifiedMembers", "name phone");
+      .populate("notifiedMembers", "fullName primaryPhone") // ✅ FIX — sahi field names
+      .populate("respondedBy", "fullName") // ✅ FIX — ye hi missing tha, isliye approve karne wale ka naam nahi aa raha tha
+      .populate("guardId", "name"); // ✅ NAYA — guard ka naam bhi chahiye ho to (Staff schema me workerName field hai, check kar lena)
 
     return res
       .status(200)
       .json({ success: true, count: visitors.length, data: visitors });
   } catch (error) {
-    console.error("===============");
-    console.error(error);
-    console.error(error.message);
-    console.error(error.stack);
-    console.error("===============");
-
     console.error("getVisitorLog error:", error);
     return res.status(500).json({ success: false, message: "Server error" });
   }
