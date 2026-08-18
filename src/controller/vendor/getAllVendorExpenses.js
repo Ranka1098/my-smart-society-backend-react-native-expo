@@ -14,11 +14,15 @@ const getAllVendorExpenses = async (req, res) => {
     const expenses = await VendorExpense.find({ buildingCode }).sort({
       createdAt: -1,
     });
+    const expensesWithBadge = expenses.map((e) => ({
+      ...e.toObject(),
+      addedBy: e.createdByModel === "Staff" ? "Guard" : "Admin",
+    }));
 
     return res.status(200).json({
       success: true,
       count: expenses.length,
-      expenses,
+      expenses: expensesWithBadge,
     });
   } catch (error) {
     return res.status(500).json({

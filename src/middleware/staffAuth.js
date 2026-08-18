@@ -25,6 +25,7 @@ const staffAuth = async (req, res, next) => {
     }
 
     req.staff = staff;
+    req.staffId = staff._id; // ✅ naya — createVendorExpense (req.adminId || req.staffId) isi pe depend
     req.buildingCode = decoded.buildingCode;
     next();
   } catch (error) {

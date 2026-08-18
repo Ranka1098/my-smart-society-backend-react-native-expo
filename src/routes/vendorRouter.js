@@ -1,6 +1,8 @@
 import express from "express";
 
 import adminAuth from "../middleware/adminAuth.js";
+import staffAuth from "../middleware/staffAuth.js";
+import memberAuth from "../middleware/memberAuth.js";
 
 import createVendor from "../controller/vendor/createVendor.js";
 import createVendorExpense from "../controller/vendor/createVendorExpense.js";
@@ -9,7 +11,6 @@ import getAllVendorExpenses from "../controller/vendor/getAllVendorExpenses.js";
 import VendorExpense from "../model/VendorExpense.js";
 import { deleteVendor } from "../controller/vendor/deleteVendor.js";
 import deleteVendorExpense from "../controller/vendor/deleteVendorExpense.js";
-import memberAuth from "../middleware/memberAuth.js";
 import upload from "../cloudinary/multerConfig.js";
 import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
 const vendorRouter = express.Router();
@@ -37,6 +38,14 @@ vendorRouter.post(
   checkBuildingSubscription,
   createVendorExpense
 );
+vendorRouter.post(
+  "/staff/createVendorExpense",
+  staffAuth,
+  checkBuildingSubscription,
+  upload.single("photo"),
+  createVendorExpense
+);
+
 vendorRouter.get(
   "/admin/getAllVendorExpense",
   adminAuth,
@@ -49,6 +58,20 @@ vendorRouter.get(
   checkBuildingSubscription,
   getAllVendorExpenses
 );
+vendorRouter.get(
+  "/staff/getAllVendorExpense",
+  staffAuth,
+  checkBuildingSubscription,
+  getAllVendorExpenses
+);
+
+vendorRouter.get(
+  "/staff/getAllVendors",
+  staffAuth,
+  checkBuildingSubscription,
+  getAllVendors
+);
+
 vendorRouter.post(
   "/deleteVendor",
   adminAuth,

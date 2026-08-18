@@ -48,6 +48,7 @@ const notificationSchema = new mongoose.Schema(
         "GUEST_EXIT",
         "FAMILY_MEMBER_APPROVED", // ✅ NAYA
         "FAMILY_MEMBER_REJECTED",
+        "VENDOR_ADDED",
       ],
       required: true,
     },

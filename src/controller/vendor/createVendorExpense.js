@@ -2,13 +2,24 @@ import sharp from "sharp";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
 import VendorExpense from "../../model/VendorExpense.js";
 import vendorModel from "../../model/Vendor.js";
-import { notifyAllMembers } from "../../controller/notifcation/notifyMembers.js";
+import {
+  notifyAllMembers,
+  notifyAdminToStaff,
+  notifyStaffToAdmin,
+} from "../../controller/notifcation/notifyMembers.js";
 
 const createVendorExpense = async (req, res) => {
   try {
     const buildingCode = req.buildingCode;
-    const buildingId = req.admin.buildingId; // ✅ middleware mein hai
-    const adminId = req.adminId;
+
+    // ✅ admin ya staff — dono middleware se yeh fields aate hain
+    const buildingId = req.admin?.buildingId || req.staff?.buildingId;
+    const createdBy = req.adminId || req.staffId;
+    const createdByModel = req.adminId ? "Admin" : "Staff";
+
+    if (!createdBy) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
 
     let { vendorId, amount, description } = req.body;
     description = description?.trim();
@@ -61,7 +72,8 @@ const createVendorExpense = async (req, res) => {
 
     const expense = await VendorExpense.create({
       buildingCode,
-      createdBy: adminId,
+      createdBy,
+      createdByModel, // ✅ naya — Admin ya Staff track karta hai
       vendor: vendor._id,
       vendorName: vendor.companyName,
       service: vendor.service,
@@ -75,31 +87,77 @@ const createVendorExpense = async (req, res) => {
       expense._id.toString()
     );
     const io = req.app.get("io");
+    const addedByLabel = createdByModel === "Admin" ? "Admin" : "Guard";
+
     await notifyAllMembers({
       io,
       buildingCode,
       buildingId,
-      // type: "VENDOR_EXPENSE",
       type: "VENDOR_EXPENSE",
       title: "New Vendor Expense Added 💸",
-      message: `${vendor.companyName} - ₹${amount} expense recorded`,
+      message: `${vendor.companyName} - ₹${amount} expense recorded by ${addedByLabel}`,
       referenceId: expense._id,
       referenceModel: "VendorExpense",
       data: {
         expenseId: expense._id.toString(),
         vendorName: vendor.companyName,
-        service: vendor.service, // ✅ add — member UI needs this
+        service: vendor.service,
         amount: String(amount),
-        photoUrl: photoUrl || "", // ✅ add
-        createdAt: expense.createdAt.toISOString(), // ✅ add — expense ka apna date, notif ka nahi
+        photoUrl: photoUrl || "",
+        createdAt: expense.createdAt.toISOString(),
+        addedBy: addedByLabel, // ✅ naya
       },
     });
-    console.log("[VENDOR_EXPENSE] Notify done for expenseId:", expense._id.toString());
+
+    // ✅ cross-notify — jisne add nahi kiya, usko bhi bhejo
+    const notifyData = {
+      expenseId: expense._id.toString(),
+      vendorName: vendor.companyName,
+      service: vendor.service,
+      amount: String(amount),
+      photoUrl: photoUrl || "",
+      createdAt: expense.createdAt.toISOString(),
+      addedBy: addedByLabel,
+    };
+
+    if (createdByModel === "Admin") {
+      await notifyAdminToStaff({
+        io,
+        buildingCode,
+        buildingId,
+        type: "VENDOR_EXPENSE",
+        title: "New Vendor Expense Added 💸",
+        message: `${vendor.companyName} - ₹${amount} expense added by Admin`,
+        referenceId: expense._id,
+        referenceModel: "VendorExpense",
+        data: notifyData,
+      });
+    } else {
+      await notifyStaffToAdmin({
+        io,
+        buildingCode,
+        buildingId,
+        type: "VENDOR_EXPENSE",
+        title: "New Vendor Expense Added 💸",
+        message: `${vendor.companyName} - ₹${amount} expense added by Guard`,
+        referenceId: expense._id,
+        referenceModel: "VendorExpense",
+        data: notifyData,
+        senderId: createdBy,
+      });
+    }
+    console.log(
+      "[VENDOR_EXPENSE] Notify done for expenseId:",
+      expense._id.toString()
+    );
 
     return res.status(201).json({
       success: true,
       message: "Vendor expense created successfully",
-      expense,
+     expense: {
+    ...expense.toObject(),
+    addedBy: createdByModel === "Staff" ? "Guard" : "Admin", // ✅ NAYA
+  },
     });
   } catch (error) {
     console.error("Create Vendor Expense Error:", error);

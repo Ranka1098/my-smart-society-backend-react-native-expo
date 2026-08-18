@@ -1,79 +1,48 @@
 import vendorModel from "../../model/Vendor.js";
+import { notifyAdminToStaff } from "../../controller/notifcation/notifyMembers.js";
 
-// ======================================================
-// CREATE VENDOR
-// ======================================================
 const createVendor = async (req, res) => {
   try {
+    const buildingCode = req.buildingCode;
+    const buildingId = req.admin?.buildingId;
     let { companyName, service, rate } = req.body;
 
-    const buildingCode = req.buildingCode;
-
-    // ======================================================
-    // NORMALIZE INPUTS
-    // ======================================================
     companyName = companyName?.trim();
     service = service?.trim();
+    rate = Number(rate);
 
-    // ======================================================
-    // REQUIRED VALIDATION
-    // ======================================================
-    if (!companyName || !service || rate === undefined) {
+    if (!companyName || !service || isNaN(rate)) {
       return res.status(400).json({
         success: false,
-        message: "Company name, service and rate are required",
+        message: "Company name, service and valid rate are required",
       });
     }
 
-    // ======================================================
-    // RATE VALIDATION
-    // ======================================================
-    if (isNaN(rate) || Number(rate) < 0) {
-      return res.status(400).json({
-        success: false,
-        field: "rate",
-        message: "Invalid vendor rate",
-      });
-    }
-
-    // ======================================================
-    // CHECK DUPLICATE VENDOR
-    // SAME BUILDING + SAME COMPANY + SAME SERVICE
-    // ======================================================
-    const existingVendor = await vendorModel.findOne({
-      buildingCode,
-
-      companyName: {
-        $regex: new RegExp(`^${companyName}$`, "i"),
-      },
-
-      service: {
-        $regex: new RegExp(`^${service}$`, "i"),
-      },
-
-      isActive: true,
-    });
-
-    if (existingVendor) {
-      return res.status(400).json({
-        success: false,
-        message: "Vendor already registered for this service",
-      });
-    }
-
-    // ======================================================
-    // CREATE VENDOR
-    // ======================================================
     const vendor = await vendorModel.create({
       buildingCode,
       companyName,
       service,
-      rate: Number(rate),
+      rate,
     });
 
-    // ======================================================
-    // SUCCESS RESPONSE
-    // ======================================================
+    const io = req.app.get("io");
+    await notifyAdminToStaff({
+      io,
+      buildingCode,
+      buildingId,
+      type: "VENDOR_ADDED",
+      title: "New Vendor Added 🧾",
+      message: `${companyName} (${service}) — ₹${rate} added by admin`,
+      referenceId: vendor._id,
+      referenceModel: "Vendor",
+      data: {
+        vendorId: vendor._id.toString(),
+        companyName: vendor.companyName,
+        service: vendor.service,
+        rate: String(vendor.rate),
+      },
+    });
+
     return res.status(201).json({
       success: true,
       message: "Vendor created successfully",
@@ -81,23 +50,17 @@ const createVendor = async (req, res) => {
     });
   } catch (error) {
     console.error("Create Vendor Error:", error);
-
-    // ======================================================
-    // DUPLICATE KEY ERROR
-    // ======================================================
-    if (error.code === 11000) {
+    if (error.name === "ValidationError") {
+      const firstError = Object.values(error.errors)[0];
       return res.status(400).json({
         success: false,
-        message: "Vendor already exists in this building",
+        field: firstError.path,
+        message: firstError.message,
       });
     }
-
-    // ======================================================
-    // SERVER ERROR
-    // ======================================================
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.message || "Internal server error",
     });
   }
 };

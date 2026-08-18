@@ -13,8 +13,14 @@ const vendorExpenseSchema = new mongoose.Schema(
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Admin",
-      required: [true, "Creator (Admin) ID is required"],
+      required: [true, "Creator ID is required"],
+      refPath: "createdByModel", // ✅ dynamic — Admin ya Staff dono resolve hote
+    },
+    createdByModel: {
+      type: String,
+      required: true,
+      enum: ["Admin", "Staff"], // ✅ exact model-name match zaroori — confirm karo
+      default: "Admin",
     },
 
     vendor: {
