@@ -25,8 +25,14 @@ workerRouter.post(
   createWorkerPendingRequest
 );
 workerRouter.get(
-  "/getAdminWorkerRequests",
+  "/admin/getAdminWorkerRequests",
   adminAuth,
+  checkBuildingSubscription,
+  getAdminWorkerRequests
+);
+workerRouter.get(
+  "/member/getAdminWorkerRequests",
+  memberAuth,
   checkBuildingSubscription,
   getAdminWorkerRequests
 );
@@ -73,8 +79,14 @@ workerRouter.post(
   quickWorkerEntry
 );
 workerRouter.get(
-  "/getApprovedAdminWorkers",
+  "/admin/getApprovedAdminWorkers",
   adminAuth,
+  checkBuildingSubscription,
+  getApprovedAdminWorkers
+);
+workerRouter.get(
+  "/member/getApprovedAdminWorkers",
+  memberAuth,
   checkBuildingSubscription,
   getApprovedAdminWorkers
 );
