@@ -30,7 +30,8 @@ import visitorRouter from "./src/routes/visitorRouter.js";
 import guestRouter from "./src/routes/guestRouter.js";
 import superAdminRouter from "./src/routes/superAdminRouter.js";
 import workerRouter from "./src/routes/workerRouter.js";
-
+import paymentRouter from "./src/routes/paymentRouter.js";
+import webhookRouter from "./src/routes/webhookRouter.js";
 import checkSubscriptionExpiry from "./src/cron/checkSubscriptionExpiry.js";
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
@@ -60,6 +61,10 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+app.use("/api/webhook", webhookRouter);
+
+
 app.use(express.json());
 
 // Routes
@@ -141,6 +146,7 @@ app.use("/", visitorRouter);
 app.use("/", guestRouter);
 app.use("/", superAdminRouter);
 app.use("/", workerRouter);
+app.use("/", paymentRouter);
 const PORT = process.env.PORT || 1098;
 
 // app.listen → server.listen
