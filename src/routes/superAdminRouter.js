@@ -21,6 +21,7 @@ import { superAdminRenewSubscription } from "../controller/superAdmin/subscripti
 import { getSubscriptionHistory } from "../controller/superAdmin/subscription/getSubscriptionHistory.js";
 import { dummyExpiryTest } from "../controller/superAdmin/subscription/dummyExpiryTest.js";
 import { getRenewalPreview } from "../controller/superAdmin/subscription/getRenewalPreview.js";
+import { getPublicRenewalPreview } from "../controller/superAdmin/subscription/getPublicRenewalPreview.js";
 
 const superAdminRouter = express.Router();
 
@@ -113,5 +114,11 @@ superAdminRouter.get(
   "/superAdmin/buildings/:buildingId/renewal-preview",
   superAdminAuth,
   getRenewalPreview
+);
+
+// route — auth middleware LAGANA MAT
+superAdminRouter.get(
+  "/public/renewal-preview/:buildingCode",
+  getPublicRenewalPreview
 );
 export default superAdminRouter;
