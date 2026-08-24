@@ -59,6 +59,74 @@ const adminRegister = async (req, res) => {
       });
     }
 
+    // Repeated character pattern check (jaise "hshshshhshsh")
+    // Same char 6+ baar YA 2-char pattern (jaise "hshshs") 4+ baar repeat
+    const gibberishRegex = /(.)\1{5,}|(..)\2{3,}/;
+
+    if (gibberishRegex.test(adminName)) {
+      return res.status(400).json({
+        success: false,
+        message: "Chairman name looks invalid — please enter a real name",
+      });
+    }
+    if (gibberishRegex.test(buildingName)) {
+      return res.status(400).json({
+        success: false,
+        message: "Building/society name looks invalid — please enter a real name",
+      });
+    }
+    if (gibberishRegex.test(address)) {
+      return res.status(400).json({
+        success: false,
+        message: "Address looks invalid — please enter a real address",
+      });
+    }
+    if (gibberishRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Email looks invalid — please enter a real email",
+      });
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format",
+      });
+    }
+
+    if (adminName.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Chairman Name too long (max 50 characters)",
+      });
+    }
+    if (buildingName.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Building name too long (max 50 characters)",
+      });
+    }
+    if (address.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Address too long (max 100 characters)",
+      });
+    }
+    if (email.length > 100) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Email too long" });
+    }
+    if (totalFlats > 1000 || totalShops > 1000) {
+      return res.status(400).json({
+        success: false,
+        message: "Flats/Shops count bohat jayda hai less than 1000",
+      });
+    }
+
     if (isNaN(totalFlats) || totalFlats < 0) {
       return res.status(400).json({
         success: false,
@@ -88,9 +156,10 @@ const adminRegister = async (req, res) => {
     });
 
     if (existingAdmin && existingAdmin.isVerified) {
+      const field = existingAdmin.email === email ? "Email" : "Phone number";
       return res.status(400).json({
         success: false,
-        message: "Admin already registered",
+        message: `${field} already registered with another account`,
       });
     }
 
