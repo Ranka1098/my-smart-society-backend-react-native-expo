@@ -167,7 +167,7 @@ const adminRegister = async (req, res) => {
     // 🔥 OTP SETUP
     // =========================
     const otp = generateOtp();
-    const otpExpireAt = new Date(Date.now() + 60 * 1000);
+  const otpExpireAt = new Date(Date.now() + 5 * 60 * 1000); // ✅ 60 sec se 5 min
 
     // =========================
     // 🔐 HASH PASSWORD

@@ -20,7 +20,7 @@ const resendAdminOtp = async (req, res) => {
       });
     }
 
-    email = email.trim().toLowerCase();
+    email = String(email).trim().toLowerCase();
 
     // =========================
     // FIND ADMIN
@@ -59,7 +59,7 @@ const resendAdminOtp = async (req, res) => {
     // GENERATE NEW OTP
     // =========================
     const newOtp = generateOtp();
-    const otpExpireAt = new Date(Date.now() + 60 * 1000);
+  const otpExpireAt = new Date(Date.now() + 5 * 60 * 1000); // ✅ 60 sec se 5 min
 
     admin.otp = newOtp;
     admin.otpExpireAt = otpExpireAt;
@@ -69,7 +69,8 @@ const resendAdminOtp = async (req, res) => {
     // =========================
     // SEND EMAIL
     // =========================
-    await sendEmailOtp(email, newOtp);
+    sendEmailOtp(email, newOtp).catch(() => {}); // ✅ await hatao, non-blocking banao — jaisa adminRegister.js mein hai
+
 
     return res.status(200).json({
       success: true,

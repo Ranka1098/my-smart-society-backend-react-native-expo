@@ -63,8 +63,8 @@ const verifyAdminOtp = async (req, res) => {
       });
     }
 
-    email = email.trim().toLowerCase();
-    otp = otp.trim();
+    email = String(email).trim().toLowerCase();
+    otp = String(otp).trim();
 
     session.startTransaction();
 
