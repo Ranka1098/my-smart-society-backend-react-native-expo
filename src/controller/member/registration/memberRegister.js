@@ -51,7 +51,9 @@ export const memberRegister = async (req, res) => {
       !buildingCode ||
       !unitNo ||
       !email ||
-      !password
+      !password ||
+      !ownerName || // ✅ add karo — hamesha chahiye (owner ya rent dono case mein)
+      !ownerPhone
     ) {
       return res.status(400).json({
         success: false,
