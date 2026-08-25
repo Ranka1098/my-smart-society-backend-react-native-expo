@@ -84,11 +84,13 @@ export const memberRegister = async (req, res) => {
     // ======================================================
     // STEP 4 — REGEX VALIDATIONS
     // ======================================================
-    const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+    const emailRegex =
+      /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.(com|in|org|net|co|edu|gov)$/i;
 
     const passwordRegex = /^.{4,20}$/;
 
     const phoneRegex = /^[0-9]{10}$/;
+    const unitNoRegex = /^[A-Z0-9]+$/i;
 
     if (!emailRegex.test(email)) {
       return res.status(400).json({
@@ -107,6 +109,13 @@ export const memberRegister = async (req, res) => {
       });
     }
 
+    if (!unitNoRegex.test(unitNo)) {
+      return res.status(400).json({
+        success: false,
+        field: "unitNo",
+        message: "Unit/Shop number can only contain letters and numbers",
+      });
+    }
     // ======================================================
     // STEP 4.5 — GIBBERISH CHECK
     // ======================================================
