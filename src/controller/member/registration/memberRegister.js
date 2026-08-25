@@ -246,7 +246,7 @@ export const memberRegister = async (req, res) => {
       return res.status(400).json({
         success: false,
         field: "buildingCode",
-        message: "Invalid building code",
+        message: "building code not exits plss enter correct building code",
       });
     }
 
