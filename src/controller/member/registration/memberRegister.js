@@ -85,7 +85,7 @@ export const memberRegister = async (req, res) => {
     // STEP 4 — REGEX VALIDATIONS
     // ======================================================
     const emailRegex =
-      /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.(com|in|org|net|co|edu|gov)$/i;
+      /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.(com|in|org|net|co|edu|gov|io|dev|app)$/i;
 
     const passwordRegex = /^.{4,20}$/;
 
