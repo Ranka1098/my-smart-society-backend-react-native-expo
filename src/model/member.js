@@ -25,6 +25,8 @@ const memberSchema = new mongoose.Schema(
       required: true,
       trim: true,
       index: true,
+      minlength: [2, "Building code must be at least 2 characters"],
+      maxlength: [20, "Building code cannot exceed 20 characters"],
     },
     buildingId: {
       // ✅ NAYA
@@ -36,6 +38,8 @@ const memberSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      minlength: [2, "Building name must be at least 2 characters"],
+      maxlength: [50, "Building name cannot exceed 50 characters"],
     },
 
     // =========================
@@ -46,12 +50,15 @@ const memberSchema = new mongoose.Schema(
       required: true,
       trim: true,
       index: true,
+    maxlength: [20, "Unit number cannot exceed 20 characters"]
     },
 
     shopName: {
       type: String,
       default: null,
       trim: true,
+      minlength: [2, "Shop name must be at least 2 characters"],
+      maxlength: [50, "Shop name cannot exceed 50 characters"],
     },
 
     // =========================
@@ -63,6 +70,8 @@ const memberSchema = new mongoose.Schema(
         return this.role === "primary"; // family ke liye required nahi
       },
       trim: true,
+      minlength: [2, "Owner name must be at least 2 characters"],
+      maxlength: [50, "Owner name cannot exceed 50 characters"],
     },
 
     ownerPhone: {
@@ -71,6 +80,8 @@ const memberSchema = new mongoose.Schema(
         return this.role === "primary"; // family ke liye required nahi
       },
       trim: true,
+     minlength: [10, "Owner phone must be 10 digits"],
+  maxlength: [10, "Owner phone cannot exceed 10 digits"],
     },
 
     // =========================
@@ -80,12 +91,16 @@ const memberSchema = new mongoose.Schema(
       type: String,
       default: null,
       trim: true,
+      minlength: [2, "renetr name must be at least 2 characters"],
+      maxlength: [50, "renetr name cannot exceed 50 characters"],
     },
 
     renterPhone: {
       type: String,
       default: null,
       trim: true,
+      minlength: [10, "renter phone must be 10 digits"],
+  maxlength: [10, "renter phone cannot exceed 10 digits"],
     },
 
     // =========================
@@ -95,6 +110,8 @@ const memberSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      minlength: [2, "fullName name must be at least 2 characters"],
+      maxlength: [50, "fullName name cannot exceed 50 characters"],
     },
 
     primaryPhone: {
@@ -115,12 +132,15 @@ const memberSchema = new mongoose.Schema(
       sparse: true, // null pe unique skip
       lowercase: true,
       trim: true,
+    
+      maxlength: [50, "email  cannot exceed 50 characters"],
     },
 
     password: {
       type: String,
       default: null,
       select: false,
+
     },
 
     // =========================
@@ -131,7 +151,7 @@ const memberSchema = new mongoose.Schema(
       default: null,
     },
 
-    otpExpires: {
+    otpExpireAt: {
       type: Date,
       default: null,
     },

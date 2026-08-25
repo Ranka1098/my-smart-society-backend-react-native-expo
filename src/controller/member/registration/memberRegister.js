@@ -5,7 +5,7 @@ import memberModel from "../../../model/member.js";
 import buildingModel from "../../../model/building.js";
 import sendEmail from "../../../utils/sendEmailOtp.js";
 
-const OTP_EXPIRY_TIME = 10 * 60 * 1000;
+const OTP_EXPIRY_TIME = 5 * 60 * 1000;
 
 // ======================================================
 // MEMBER REGISTER
@@ -105,6 +105,77 @@ export const memberRegister = async (req, res) => {
         message:
           "Password must contain uppercase, lowercase, number and special character",
       });
+    }
+
+    // ======================================================
+    // STEP 4.5 — GIBBERISH CHECK
+    // ======================================================
+    const gibberishRegex = /(.)\1{5,}|(..)\2{3,}/;
+
+    if (gibberishRegex.test(ownerName)) {
+      return res.status(400).json({
+        success: false,
+        field: "ownerName",
+        message: "Owner name looks invalid — please enter a real name",
+      });
+    }
+    if (renterName && gibberishRegex.test(renterName)) {
+      return res.status(400).json({
+        success: false,
+        field: "renterName",
+        message: "Renter name looks invalid — please enter a real name",
+      });
+    }
+    if (shopName && gibberishRegex.test(shopName)) {
+      return res.status(400).json({
+        success: false,
+        field: "shopName",
+        message: "Shop name looks invalid — please enter a real name",
+      });
+    }
+    if (gibberishRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        field: "email",
+        message: "Email looks invalid — please enter a real email",
+      });
+    }
+
+    // ======================================================
+    // STEP 4.6 — LENGTH LIMITS
+    // ======================================================
+    if (ownerName.length > 50) {
+      return res.status(400).json({
+        success: false,
+        field: "ownerName",
+        message: "Owner name too long (max 50 characters)",
+      });
+    }
+    if (renterName && renterName.length > 50) {
+      return res.status(400).json({
+        success: false,
+        field: "renterName",
+        message: "Renter name too long (max 50 characters)",
+      });
+    }
+    if (shopName && shopName.length > 50) {
+      return res.status(400).json({
+        success: false,
+        field: "shopName",
+        message: "Shop name too long (max 50 characters)",
+      });
+    }
+    if (unitNo.length > 20) {
+      return res.status(400).json({
+        success: false,
+        field: "unitNo",
+        message: "Unit number too long (max 20 characters)",
+      });
+    }
+    if (email.length > 50) {
+      return res
+        .status(400)
+        .json({ success: false, field: "email", message: "Email too long" });
     }
 
     // ======================================================
@@ -350,25 +421,18 @@ export const memberRegister = async (req, res) => {
 
       pendingUnverifiedUnit.otp = otp;
 
-      pendingUnverifiedUnit.otpExpires = new Date(Date.now() + OTP_EXPIRY_TIME);
+      pendingUnverifiedUnit.otpExpireAt = new Date(
+        Date.now() + OTP_EXPIRY_TIME
+      );
 
       await pendingUnverifiedUnit.save();
 
-      await sendEmail(email, otp, "verify");
+      sendEmail(email, otp, "verify").catch(() => {});
 
       return res.status(200).json({
         success: true,
         message: "Details updated successfully. OTP sent to new email.",
         memberId: pendingUnverifiedUnit._id,
-      });
-    }
-
-    if (pendingUnverifiedUnit) {
-      return res.status(400).json({
-        success: false,
-        field: "unitNo",
-        message:
-          "This flat/shop already has a pending OTP verification request",
       });
     }
 
@@ -397,13 +461,13 @@ export const memberRegister = async (req, res) => {
 
       pendingUnverifiedEmail.otp = otp;
 
-      pendingUnverifiedEmail.otpExpires = new Date(
+      pendingUnverifiedEmail.otpExpireAt = new Date(
         Date.now() + OTP_EXPIRY_TIME
       );
 
       await pendingUnverifiedEmail.save();
 
-      await sendEmail(email, otp, "verify");
+      sendEmail(email, otp, "verify").catch(() => {});
 
       return res.status(200).json({
         success: true,
@@ -432,8 +496,7 @@ export const memberRegister = async (req, res) => {
     // ======================================================
     const otp = crypto.randomInt(100000, 999999).toString();
 
-    const otpExpires = new Date(Date.now() + OTP_EXPIRY_TIME);
-
+    const otpExpireAt = new Date(Date.now() + 5 * 60 * 1000); // ✅ 10 min se 5 min
     // ======================================================
     // STEP 16 — CREATE MEMBER
     // ======================================================
@@ -460,7 +523,7 @@ export const memberRegister = async (req, res) => {
       password: hashedPassword,
 
       otp,
-      otpExpires,
+      otpExpireAt,
 
       isVerified: false,
       approvalStatus: "Pending",
@@ -471,7 +534,7 @@ export const memberRegister = async (req, res) => {
     // ======================================================
     // STEP 17 — SEND EMAIL
     // ======================================================
-    await sendEmail(email, otp, "verify");
+    sendEmail(email, otp, "verify").catch(() => {});
 
     // ======================================================
     // SUCCESS RESPONSE
@@ -480,6 +543,7 @@ export const memberRegister = async (req, res) => {
       success: true,
       message: "Registered successfully. Please verify OTP.",
       memberId: member._id,
+      otpExpireAt,
     });
   } catch (error) {
     console.error("Member Register Error:", error);

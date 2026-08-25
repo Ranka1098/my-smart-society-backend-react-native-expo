@@ -37,7 +37,7 @@ const verifyMemberOtp = async (req, res) => {
       });
     }
 
-    if (!member.otpExpires || member.otpExpires < new Date()) {
+    if (!member.otpExpireAt || member.otpExpireAt < new Date()) {
       return res.status(400).json({
         success: false,
         message: "OTP expired",
@@ -63,7 +63,7 @@ const verifyMemberOtp = async (req, res) => {
     member.isVerified = true;
     member.approvalStatus = "Pending";
     member.otp = null;
-    member.otpExpires = null;
+    member.otpExpireAt = null;
 
     await member.save();
 

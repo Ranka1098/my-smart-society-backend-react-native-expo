@@ -27,7 +27,7 @@ const resendMemberOtp = async (req, res) => {
     // verifyMemberOtp.js
     const member = await memberModel
       .findOne({ email: email.toLowerCase().trim() })
-      .select("+otp +otpExpires"); // ← yeh add karo  // ← explicitly mangao
+      .select("+otp +otpExpireAt"); // ← yeh add karo  // ← explicitly mangao
 
     if (!member) {
       return res.status(404).json({
@@ -45,37 +45,43 @@ const resendMemberOtp = async (req, res) => {
         message: "Member already verified",
       });
     }
+    // =========================
+    // CHECK IF OTP STILL VALID
+    // =========================
+    if (member.otpExpireAt && member.otpExpireAt > new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP already sent. Please wait until it expires.",
+        otpExpireAt: member.otpExpireAt,
+      });
+    }
 
     // =========================
     // GENERATE NEW OTP
     // =========================
     const otp = crypto.randomInt(100000, 999999).toString();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    const otpExpireAt = new Date(Date.now() + 5 * 60 * 1000);
 
     // =========================
     // UPDATE MEMBER
     // =========================
     member.otp = otp;
-    member.otpExpires = otpExpires;
+    member.otpExpireAt = otpExpireAt;
 
     await member.save();
 
     // =========================
     // SEND EMAIL
     // =========================
-    await sendEmail({
-      to: email,
-      subject: "Verify OTP",
-      text: `Your OTP is ${otp}`,
-    });
 
     // BAAD
-    await sendEmail(email, otp, "verify");
+    // pehli line delete karo, sirf ye rakho:
+    sendEmail(email, otp, "verify").catch(() => {});
 
     return res.status(200).json({
       success: true,
       message: "OTP resent successfully",
-      otpExpires,
+      otpExpireAt,
     });
   } catch (error) {
     console.log("Resend OTP Error:", error);
