@@ -45,8 +45,10 @@ const staffSchema = new mongoose.Schema(
       required: [true, "Email is required"],
       trim: true,
       lowercase: true,
+      maxlength: [100, "Email too long"],
       match: [
-        /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+        // ✅ FIX — pehle {2,} open-ended tha, fake domains (.commmm) pass ho jate the
+        /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.(com|in|org|net|co|edu|gov|io|dev|app)$/i,
         "Invalid email format",
       ],
     },
@@ -55,13 +57,19 @@ const staffSchema = new mongoose.Schema(
       type: String,
       required: [true, "Worker phone number is required"],
       trim: true,
+      unique: true, // ✅ ADD
+      sparse: true, // ✅ ADD — safety, agar kabhi null ho
       match: [/^[0-9]{10}$/, "Worker phone number must be 10 digits"],
     },
 
+    // ⚠️ NOTE — maxlength jaan-boojh ke NAHI lagaya password pe.
+    // Controller password ko bcrypt.hash() karke ~60-char hash yahan save karta hai.
+    // Agar maxlength lagaya (jaisa admin model mein pehle bug tha), har register
+    // "password cannot exceed X characters" error se crash karega, kyunki hash
+    // hamesha raw password se lamba hota hai.
     password: {
       type: String,
       required: [true, "Password is required"],
-      minlength: [6, "Password must be at least 6 characters"],
     },
 
     workerAddress: {

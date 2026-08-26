@@ -12,13 +12,41 @@ import sendOtpEmail from "../../utils/sendEmailOtp.js";
 
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 
+// ✅ helper — compress + upload ek function mein, taaki Promise.all se
+// dono photos (workerPhoto + workerIdProof) PARALLEL chal sakein
+// (pehle sequential the — ek ke baad ek — isliye register slow tha)
+const compressAndUpload = async (file, maxWidth, folder) => {
+  const compressed = await sharp(file.buffer)
+    .resize({ width: maxWidth, withoutEnlargement: true })
+    .jpeg({ quality: 70 })
+    .toBuffer();
+  const uploaded = await uploadToCloudinary(compressed, folder);
+  return uploaded.secure_url;
+};
+
+// ✅ regex/validation constants — member/admin jaisa hi pattern
+const emailRegex =
+  /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.(com|in|org|net|co|edu|gov|io|dev|app)$/i;
+const phoneRegex = /^[0-9]{10}$/;
+const passwordRegex = /^.{6,20}$/; // model minlength:6 se match
+const buildingCodeRegex = /^[A-Z0-9-]+$/i;
+const gibberishRegex = /(.)\1{5,}|(..)\2{2,}|[^aeiou\s]{6,}/i;
+const validRoles = [
+  "security",
+  "cleaner",
+  "plumber",
+  "electrician",
+  "gardener",
+  "other",
+];
+
 // ─────────────────────────────────────────────────────────
 // @route  POST /staffRegister
 // @access Public
 // ─────────────────────────────────────────────────────────
 const staffRegister = async (req, res) => {
   try {
-    const {
+    let {
       buildingCode,
       role,
       workerName,
@@ -28,13 +56,132 @@ const staffRegister = async (req, res) => {
       workerAddress,
     } = req.body;
 
+    // ======================================================
+    // STEP 1 — NORMALIZE
+    // ======================================================
+    buildingCode = buildingCode?.trim();
+    role = role?.trim().toLowerCase();
+    workerName = workerName?.trim();
+    email = email?.trim().toLowerCase();
+    workerPhoneNumber = workerPhoneNumber?.trim();
+    password = password?.trim();
+    workerAddress = workerAddress?.trim();
+
+    // ======================================================
+    // STEP 2 — REQUIRED FIELDS
+    // ✅ FIX — pehle ye check hi nahi tha, isliye buildingCode.toUpperCase()
+    // ya email.toLowerCase() jaisi lines undefined pe crash (500) karti thi
+    // ======================================================
+    if (
+      !buildingCode ||
+      !role ||
+      !workerName ||
+      !email ||
+      !workerPhoneNumber ||
+      !password ||
+      !workerAddress
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All required fields are mandatory",
+      });
+    }
+
     if (!req.files?.workerPhoto || !req.files?.workerIdProof) {
       return res
         .status(400)
         .json({ success: false, message: "Photos required" });
     }
 
-    // 1. Building exists?
+    // ======================================================
+    // STEP 3 — FORMAT VALIDATIONS
+    // ======================================================
+    if (!buildingCodeRegex.test(buildingCode)) {
+      return res.status(400).json({
+        success: false,
+        field: "buildingCode",
+        message: "Invalid building code format",
+      });
+    }
+
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        field: "role",
+        message: "Invalid role",
+      });
+    }
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        field: "email",
+        message: "Invalid email format",
+      });
+    }
+
+    if (!phoneRegex.test(workerPhoneNumber)) {
+      return res.status(400).json({
+        success: false,
+        field: "workerPhoneNumber",
+        message: "Phone number must be 10 digits",
+      });
+    }
+
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        field: "password",
+        message: "Password must be 6-20 characters",
+      });
+    }
+
+    // ======================================================
+    // STEP 4 — GIBBERISH CHECK
+    // ======================================================
+    if (gibberishRegex.test(workerName)) {
+      return res.status(400).json({
+        success: false,
+        field: "workerName",
+        message: "Worker name looks invalid — please enter a real name",
+      });
+    }
+    if (gibberishRegex.test(workerAddress)) {
+      return res.status(400).json({
+        success: false,
+        field: "workerAddress",
+        message: "Address looks invalid — please enter a real address",
+      });
+    }
+    if (gibberishRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        field: "email",
+        message: "Email looks invalid — please enter a real email",
+      });
+    }
+
+    // ======================================================
+    // STEP 5 — LENGTH LIMITS
+    // ======================================================
+    if (workerName.length < 3 || workerName.length > 50) {
+      return res.status(400).json({
+        success: false,
+        field: "workerName",
+        message: "Worker name must be 3-50 characters",
+      });
+    }
+    if (workerAddress.length < 3 || workerAddress.length > 200) {
+      return res.status(400).json({
+        success: false,
+        field: "workerAddress",
+        message: "Address must be 3-200 characters",
+      });
+    }
+
+    // ======================================================
+    // STEP 6 — BUILDING EXISTS?
+    // ======================================================
     const building = await BuildingModel.findOne({
       buildingCode: buildingCode.toUpperCase(),
     });
@@ -44,38 +191,36 @@ const staffRegister = async (req, res) => {
         .json({ success: false, message: "Building code not found" });
     }
 
-    // 2. Email unique per building
+    // ======================================================
+    // STEP 7 — EMAIL UNIQUE PER BUILDING
+    // ======================================================
     const existing = await StaffModel.findOne({
-      email: email.toLowerCase(),
+      email,
       buildingCode: buildingCode.toUpperCase(),
     });
 
     if (existing) {
-      // ✅ NAYA — pehle reject ho chuka hai to fresh registration jaisa treat karo
+      // pehle reject ho chuka hai to fresh registration jaisa treat karo
       if (existing.status === "rejected") {
         let workerPhotoUrl = existing.workerPhoto;
         let workerIdProofUrl = existing.workerIdProof;
 
-        if (req.files?.workerPhoto?.[0]) {
-          const compressed = await sharp(req.files.workerPhoto[0].buffer)
-            .resize({ width: 800, withoutEnlargement: true })
-            .jpeg({ quality: 70 })
-            .toBuffer();
-          const uploaded = await uploadToCloudinary(compressed, "staffPhotos");
-          workerPhotoUrl = uploaded.secure_url;
-        }
-
-        if (req.files?.workerIdProof?.[0]) {
-          const compressed = await sharp(req.files.workerIdProof[0].buffer)
-            .resize({ width: 1200, withoutEnlargement: true })
-            .jpeg({ quality: 70 })
-            .toBuffer();
-          const uploaded = await uploadToCloudinary(
-            compressed,
-            "staffIdProofs"
-          );
-          workerIdProofUrl = uploaded.secure_url;
-        }
+        // ✅ FIX — pehle sequential tha (photo upload khatam hone ka wait,
+        // phir ID upload shuru), ab Promise.all se dono ek saath chalte hain
+        const [newPhotoUrl, newIdUrl] = await Promise.all([
+          req.files?.workerPhoto?.[0]
+            ? compressAndUpload(req.files.workerPhoto[0], 800, "staffPhotos")
+            : Promise.resolve(null),
+          req.files?.workerIdProof?.[0]
+            ? compressAndUpload(
+                req.files.workerIdProof[0],
+                1200,
+                "staffIdProofs"
+              )
+            : Promise.resolve(null),
+        ]);
+        if (newPhotoUrl) workerPhotoUrl = newPhotoUrl;
+        if (newIdUrl) workerIdProofUrl = newIdUrl;
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const otp = generateOtp();
@@ -88,9 +233,10 @@ const staffRegister = async (req, res) => {
         existing.workerPhoto = workerPhotoUrl;
         existing.workerIdProof = workerIdProofUrl;
         existing.otp = otp;
-        existing.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-        existing.isEmailVerified = false; // ✅ dobara verify karana hoga
-        existing.status = "pending"; // ✅ reset
+        const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // ✅ variable banaya taaki response mein bhej sake
+        existing.otpExpiry = otpExpiry;
+        existing.isEmailVerified = false; // dobara verify karana hoga
+        existing.status = "pending"; // reset
 
         await existing.save();
 
@@ -101,88 +247,83 @@ const staffRegister = async (req, res) => {
         return res.status(200).json({
           success: true,
           message: "Registration successful. OTP sent to your email.",
+          otpExpireAt: otpExpiry, // ✅ FIX — pehle missing tha, timer turant 0 dikhata tha
         });
       }
 
       if (!existing.isEmailVerified) {
-        // Upload photos if present
-        if (req.files?.workerPhoto?.[0]) {
-          const compressed = await sharp(req.files.workerPhoto[0].buffer)
-            .resize({ width: 800, withoutEnlargement: true })
-            .jpeg({ quality: 70 })
-            .toBuffer();
-          const uploaded = await uploadToCloudinary(compressed, "staffPhotos");
-          existing.workerPhoto = uploaded.secure_url;
-        }
-
-        if (req.files?.workerIdProof?.[0]) {
-          const compressed = await sharp(req.files.workerIdProof[0].buffer)
-            .resize({ width: 1200, withoutEnlargement: true })
-            .jpeg({ quality: 70 })
-            .toBuffer();
-          const uploaded = await uploadToCloudinary(
-            compressed,
-            "staffIdProofs"
-          );
-          existing.workerIdProof = uploaded.secure_url;
-        }
+        // ✅ FIX — parallel upload (Promise.all), pehle sequential tha
+        const [newPhotoUrl, newIdUrl] = await Promise.all([
+          req.files?.workerPhoto?.[0]
+            ? compressAndUpload(req.files.workerPhoto[0], 800, "staffPhotos")
+            : Promise.resolve(null),
+          req.files?.workerIdProof?.[0]
+            ? compressAndUpload(
+                req.files.workerIdProof[0],
+                1200,
+                "staffIdProofs"
+              )
+            : Promise.resolve(null),
+        ]);
+        if (newPhotoUrl) existing.workerPhoto = newPhotoUrl;
+        if (newIdUrl) existing.workerIdProof = newIdUrl;
 
         const otp = generateOtp();
+        const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // ✅ variable banaya taaki response mein bhej sake
         existing.otp = otp;
-        existing.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+        existing.otpExpiry = otpExpiry;
         await existing.save();
 
         try {
           await sendOtpEmail(email, otp, workerName);
         } catch (e) {}
-        return res
-          .status(200)
-          .json({ success: true, message: "OTP resent to your email" });
+        return res.status(200).json({
+          success: true,
+          message: "OTP resent to your email",
+          otpExpireAt: otpExpiry, // ✅ FIX — pehle missing tha
+        });
       }
 
-      // ✅ ab yaha sirf "approved" ya "pending+verified" (waiting admin approval) staff aayega
+      // ab yaha sirf "approved" ya "pending+verified" (waiting admin approval) staff aayega
       return res.status(409).json({
         success: false,
         message: "Staff already registered with this email",
       });
     }
 
-    // 3. Upload images if present
-    let workerPhotoUrl = null;
-    let workerIdProofUrl = null;
+    // ======================================================
+    // STEP 8 — UPLOAD IMAGES
+    // ✅ FIX — parallel upload (Promise.all), pehle sequential tha
+    // ======================================================
+    const [workerPhotoUrl, workerIdProofUrl] = await Promise.all([
+      req.files?.workerPhoto?.[0]
+        ? compressAndUpload(req.files.workerPhoto[0], 800, "staffPhotos")
+        : Promise.resolve(null),
+      req.files?.workerIdProof?.[0]
+        ? compressAndUpload(req.files.workerIdProof[0], 1200, "staffIdProofs")
+        : Promise.resolve(null),
+    ]);
 
-    if (req.files?.workerPhoto?.[0]) {
-      const compressed = await sharp(req.files.workerPhoto[0].buffer)
-        .resize({ width: 800, withoutEnlargement: true })
-        .jpeg({ quality: 70 })
-        .toBuffer();
-      const uploaded = await uploadToCloudinary(compressed, "staffPhotos");
-      workerPhotoUrl = uploaded.secure_url;
-    }
-
-    if (req.files?.workerIdProof?.[0]) {
-      const compressed = await sharp(req.files.workerIdProof[0].buffer)
-        .resize({ width: 1200, withoutEnlargement: true })
-        .jpeg({ quality: 70 })
-        .toBuffer();
-      const uploaded = await uploadToCloudinary(compressed, "staffIdProofs");
-      workerIdProofUrl = uploaded.secure_url;
-    }
-
-    // 4. Hash password
+    // ======================================================
+    // STEP 9 — HASH PASSWORD
+    // ======================================================
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 5. Generate OTP
+    // ======================================================
+    // STEP 10 — GENERATE OTP
+    // ======================================================
     const otp = generateOtp();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
-    // 6. Save staff
+    // ======================================================
+    // STEP 11 — SAVE STAFF
+    // ======================================================
     const staff = new StaffModel({
       buildingCode: buildingCode.toUpperCase(),
       buildingId: building._id,
       role,
       workerName,
-      email: email.toLowerCase(),
+      email,
       workerPhoneNumber,
       password: hashedPassword,
       workerAddress,
@@ -195,7 +336,9 @@ const staffRegister = async (req, res) => {
 
     await staff.save();
 
-    // 7. Send OTP
+    // ======================================================
+    // STEP 12 — SEND OTP
+    // ======================================================
     try {
       await sendOtpEmail(email, otp, workerName);
     } catch (mailErr) {
@@ -205,12 +348,24 @@ const staffRegister = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Registration successful. OTP sent to your email.",
+      otpExpireAt: otpExpiry, // ✅ FIX — pehle missing tha, staff OTP timer turant 0 dikhata tha
     });
   } catch (error) {
     console.error("staffRegister error:", error);
+
+    // ======================================================
+    // DUPLICATE KEY ERROR (unique index: email + buildingCode)
+    // ======================================================
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Staff already registered with this email",
+      });
+    }
+
     return res
       .status(500)
-      .json({ success: false, message: error.message || "Server error" });
+      .json({ success: false, message: "Internal server error" });
   }
 };
 

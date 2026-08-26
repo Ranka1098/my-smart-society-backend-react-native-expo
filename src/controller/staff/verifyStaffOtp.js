@@ -3,9 +3,19 @@ import { notifyStaffToAdmin } from "../notifcation/notifyMembers.js";
 
 const verifyStaffOtp = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    let { email, otp } = req.body;
 
-    const staff = await StaffModel.findOne({ email: email.toLowerCase() });
+    // ✅ FIX — required check, warna email.toLowerCase() crash karta
+    if (!email || !otp) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Email and OTP are required" });
+    }
+
+    email = String(email).trim().toLowerCase();
+    otp = String(otp).trim();
+
+    const staff = await StaffModel.findOne({ email });
     if (!staff) {
       return res
         .status(404)
@@ -34,8 +44,8 @@ const verifyStaffOtp = async (req, res) => {
     staff.otpExpiry = null;
     await staff.save();
 
-    // ✅ NAYA — notify ko apne try-catch me wrap kiya
-    // taaki notification fail ho to bhi verification response sahi jaye
+    // notify apne try-catch me wrap kiya taaki notification fail ho to bhi
+    // verification response sahi jaye
     try {
       const io = req.app.get("io");
       await notifyStaffToAdmin({
