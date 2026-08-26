@@ -72,7 +72,8 @@ const adminRegister = async (req, res) => {
     if (gibberishRegex.test(buildingName)) {
       return res.status(400).json({
         success: false,
-        message: "Building/society name looks invalid — please enter a real name",
+        message:
+          "Building/society name looks invalid — please enter a real name",
       });
     }
     if (gibberishRegex.test(address)) {
@@ -88,7 +89,8 @@ const adminRegister = async (req, res) => {
       });
     }
 
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const emailRegex =
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|in|org|net|co|edu|gov|io|dev|app)$/i;
 
     if (!emailRegex.test(email)) {
       return res.status(400).json({
@@ -148,6 +150,14 @@ const adminRegister = async (req, res) => {
       });
     }
 
+    const pincodeRegex = /^[0-9]{6}$/;
+    if (!pincodeRegex.test(pincode)) {
+      return res.status(400).json({
+        success: false,
+        message: "Pincode must be exactly 6 digits",
+      });
+    }
+
     // =========================
     // ✅ CHECK EXISTING ADMIN
     // =========================
@@ -167,7 +177,7 @@ const adminRegister = async (req, res) => {
     // 🔥 OTP SETUP
     // =========================
     const otp = generateOtp();
-  const otpExpireAt = new Date(Date.now() + 5 * 60 * 1000); // ✅ 60 sec se 5 min
+    const otpExpireAt = new Date(Date.now() + 5 * 60 * 1000); // ✅ 60 sec se 5 min
 
     // =========================
     // 🔐 HASH PASSWORD
