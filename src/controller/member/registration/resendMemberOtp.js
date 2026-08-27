@@ -76,11 +76,13 @@ const resendMemberOtp = async (req, res) => {
 
     // BAAD
     // pehli line delete karo, sirf ye rakho:
-    sendEmail(email, otp, "verify").catch(() => {});
-
+    const emailSent = await sendEmail(email, otp, "verify");
     return res.status(200).json({
       success: true,
-      message: "OTP resent successfully",
+      message: emailSent
+        ? "OTP resent successfully"
+        : "OTP generated, but email failed to send",
+      emailSent,
       otpExpireAt,
     });
   } catch (error) {

@@ -240,14 +240,19 @@ const staffRegister = async (req, res) => {
 
         await existing.save();
 
+        let emailSent = true;
         try {
-          await sendOtpEmail(email, otp, workerName);
-        } catch (e) {}
-
+          await sendOtpEmail(email, otp, "verify");
+        } catch (e) {
+          emailSent = false;
+        }
         return res.status(200).json({
           success: true,
-          message: "Registration successful. OTP sent to your email.",
-          otpExpireAt: otpExpiry, // ✅ FIX — pehle missing tha, timer turant 0 dikhata tha
+          message: emailSent
+            ? "OTP resent to your email"
+            : "OTP generated, but email failed to send",
+          emailSent,
+          otpExpireAt: otpExpiry,
         });
       }
 
@@ -274,17 +279,22 @@ const staffRegister = async (req, res) => {
         existing.otpExpiry = otpExpiry;
         await existing.save();
 
+        let emailSent = true;
         try {
-          await sendOtpEmail(email, otp, workerName);
-        } catch (e) {}
+          await sendOtpEmail(email, otp, "verify");
+        } catch (e) {
+          emailSent = false;
+        }
         return res.status(200).json({
           success: true,
-          message: "OTP resent to your email",
-          otpExpireAt: otpExpiry, // ✅ FIX — pehle missing tha
+          message: emailSent
+            ? "OTP resent to your email"
+            : "OTP generated, but email failed to send",
+          emailSent,
+          otpExpireAt: otpExpiry,
         });
       }
 
-      // ab yaha sirf "approved" ya "pending+verified" (waiting admin approval) staff aayega
       return res.status(409).json({
         success: false,
         message: "Staff already registered with this email",
@@ -339,16 +349,19 @@ const staffRegister = async (req, res) => {
     // ======================================================
     // STEP 12 — SEND OTP
     // ======================================================
+    let emailSent = true;
     try {
-      await sendOtpEmail(email, otp, workerName);
-    } catch (mailErr) {
-      console.error("OTP mail failed:", mailErr);
+      await sendOtpEmail(email, otp, "verify");
+    } catch (e) {
+      emailSent = false;
     }
-
     return res.status(201).json({
       success: true,
-      message: "Registration successful. OTP sent to your email.",
-      otpExpireAt: otpExpiry, // ✅ FIX — pehle missing tha, staff OTP timer turant 0 dikhata tha
+      message: emailSent
+        ? "Registration successful. OTP sent to your email."
+        : "Registered, but OTP email failed to send. Try Resend OTP.",
+      emailSent,
+      otpExpireAt: otpExpiry,
     });
   } catch (error) {
     console.error("staffRegister error:", error);

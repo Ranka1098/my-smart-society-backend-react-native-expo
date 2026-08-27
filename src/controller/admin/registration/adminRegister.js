@@ -205,11 +205,13 @@ const adminRegister = async (req, res) => {
 
       await existingAdmin.save();
 
-      sendEmailOtp(email, otp).catch(() => {});
-
+      const emailSent = await sendEmailOtp(email, otp);
       return res.status(200).json({
         success: true,
-        message: "OTP resent successfully",
+        message: emailSent
+          ? "OTP resent successfully"
+          : "Registered, but OTP email failed to send. Try Resend OTP.",
+        emailSent,
         otpExpireAt,
       });
     }
@@ -235,11 +237,14 @@ const adminRegister = async (req, res) => {
       isVerified: false,
     });
 
-    sendEmailOtp(email, otp).catch(() => {});
+      const emailSent = await sendEmailOtp(email, otp);
 
     return res.status(201).json({
       success: true,
-      message: "OTP sent successfully",
+      message: emailSent
+        ? "OTP sent successfully"
+        : "Registered, but OTP email failed to send. Try Resend OTP.",
+      emailSent,
       otpExpireAt,
     });
   } catch (error) {

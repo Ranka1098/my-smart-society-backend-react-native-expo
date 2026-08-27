@@ -12,19 +12,18 @@ const emailApi = new SibApiV3Sdk.TransactionalEmailsApi();
 const sendBrevoEmail = async ({ to, subject, html }) => {
   try {
     await emailApi.sendTransacEmail({
-      sender: {
-        email: process.env.BREVO_FROM_EMAIL,
-        name: "Smart Society",
-      },
+      sender: { email: process.env.BREVO_FROM_EMAIL, name: "Smart Society" },
       to: [{ email: to }],
       subject,
       htmlContent: html,
     });
+    return true;
   } catch (error) {
     console.error(
       "❌ Brevo email error:",
       error.response?.body || error.message
     );
+    return false;
   }
 };
 

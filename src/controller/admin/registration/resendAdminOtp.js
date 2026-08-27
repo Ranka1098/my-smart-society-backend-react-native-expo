@@ -69,11 +69,13 @@ const resendAdminOtp = async (req, res) => {
     // =========================
     // SEND EMAIL
     // =========================
-    sendEmailOtp(email, newOtp).catch(() => {});
-
+    const emailSent = await sendEmailOtp(email, newOtp);
     return res.status(200).json({
       success: true,
-      message: "New OTP sent successfully",
+      message: emailSent
+        ? "New OTP sent successfully"
+        : "OTP generated but email failed to send",
+      emailSent,
       otpExpireAt,
     });
   } catch (error) {

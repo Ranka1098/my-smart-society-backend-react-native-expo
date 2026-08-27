@@ -37,12 +37,18 @@ const resendStaffOtp = async (req, res) => {
     staff.otpExpiry = otpExpiry;
     await staff.save();
 
-    await sendOtpEmail(email, otp, staff.workerName);
+    let emailSent = true;
+    try {
+      await sendOtpEmail(email, otp, "verify");
+    } catch (e) {
+      emailSent = false;
+    }
 
     return res.status(200).json({
       success: true,
-      message: "OTP resent successfully",
-      otpExpireAt: otpExpiry, // ✅ FIX — pehle missing tha, isliye resend ke baad bhi timer 0 dikhta
+      message: emailSent ? "OTP resent successfully" : "OTP generated, but email failed to send",
+      emailSent,
+      otpExpireAt: otpExpiry,
     });
   } catch (error) {
     console.error("resendStaffOtp error:", error);
