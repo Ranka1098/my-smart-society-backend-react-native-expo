@@ -8,9 +8,7 @@ const emailApi = new SibApiV3Sdk.TransactionalEmailsApi();
 
 const sendEmailOtp = async (email, otp, type = "verify") => {
   try {
-    let subject = "",
-      heading = "",
-      message = "";
+    let subject = "", heading = "", message = "";
     if (type === "forgot") {
       subject = "Reset Your Password - OTP";
       heading = "Password Reset Request";
@@ -23,10 +21,7 @@ const sendEmailOtp = async (email, otp, type = "verify") => {
 
     const emailData = {
       to: [{ email }],
-      sender: {
-        email: process.env.BREVO_FROM_EMAIL,
-        name: "Smart Society",
-      },
+      sender: { email: process.env.BREVO_FROM_EMAIL, name: "Smart Society" },
       subject,
       htmlContent: `
         <div style="font-family: Arial, sans-serif;">
@@ -39,9 +34,12 @@ const sendEmailOtp = async (email, otp, type = "verify") => {
     };
 
     await emailApi.sendTransacEmail(emailData);
+    return true;
   } catch (error) {
-    console.error("❌ Email send error:", error);
+    console.error("❌ Email send error:", error.response?.body || error.message);
+    return false; // ya throw error; — caller ko pata chale
   }
 };
+
 
 export default sendEmailOtp;
