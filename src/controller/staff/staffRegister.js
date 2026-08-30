@@ -153,13 +153,6 @@ const staffRegister = async (req, res) => {
         message: "Address looks invalid — please enter a real address",
       });
     }
-    if (gibberishRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        field: "email",
-        message: "Email looks invalid — please enter a real email",
-      });
-    }
 
     // ======================================================
     // STEP 5 — LENGTH LIMITS

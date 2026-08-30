@@ -8,7 +8,9 @@ const emailApi = new SibApiV3Sdk.TransactionalEmailsApi();
 
 const sendEmailOtp = async (email, otp, type = "verify") => {
   try {
-    let subject = "", heading = "", message = "";
+    let subject = "",
+      heading = "",
+      message = "";
     if (type === "forgot") {
       subject = "Reset Your Password - OTP";
       heading = "Password Reset Request";
@@ -33,13 +35,21 @@ const sendEmailOtp = async (email, otp, type = "verify") => {
       `,
     };
 
-    await emailApi.sendTransacEmail(emailData);
+    const result = await emailApi.sendTransacEmail(emailData);
     return true;
   } catch (error) {
-    console.error("❌ Email send error:", error.response?.body || error.message);
-    return false; // ya throw error; — caller ko pata chale
+    console.error(
+      "❌ Email send error FULL:",
+      JSON.stringify(error, Object.getOwnPropertyNames(error))
+    );
+    console.error(
+      "❌ error.response:",
+      error.response?.body || error.response?.text || "no response body"
+    );
+    console.error("❌ error.message:", error.message);
+    console.error("❌ error status:", error.status || error.statusCode);
+    return false;
   }
 };
-
 
 export default sendEmailOtp;

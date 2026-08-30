@@ -1,3 +1,7 @@
+// =========================
+// Code Name: memberRegister.js
+// =========================
+
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 
@@ -52,7 +56,7 @@ export const memberRegister = async (req, res) => {
       !unitNo ||
       !email ||
       !password ||
-      !ownerName || // ✅ add karo — hamesha chahiye (owner ya rent dono case mein)
+      !ownerName ||
       !ownerPhone
     ) {
       return res.status(400).json({
@@ -118,6 +122,7 @@ export const memberRegister = async (req, res) => {
         message: "Unit/Shop number can only contain letters and numbers",
       });
     }
+
     // ======================================================
     // STEP 4.5 — GIBBERISH CHECK
     // ======================================================
@@ -242,7 +247,6 @@ export const memberRegister = async (req, res) => {
     // STEP 8 — RESOLVE NAME + PHONE
     // ======================================================
     const fullName = memberStatus === "Owner" ? ownerName : renterName;
-
     const primaryPhone = memberStatus === "Owner" ? ownerPhone : renterPhone;
 
     // ======================================================
@@ -280,7 +284,6 @@ export const memberRegister = async (req, res) => {
     const findMember = (field, value, extraFilters = {}) => {
       return existingMembers.find((member) => {
         if (member[field] !== value) return false;
-
         return Object.entries(extraFilters).every(
           ([key, val]) => member[key] === val
         );
@@ -290,8 +293,6 @@ export const memberRegister = async (req, res) => {
     // ======================================================
     // STEP 12 — APPROVED VALIDATIONS
     // ======================================================
-
-    // ---------- UNIT ----------
     const approvedUnit = findMember("unitNo", unitNo, {
       memberType,
       isVerified: true,
@@ -308,7 +309,6 @@ export const memberRegister = async (req, res) => {
       });
     }
 
-    // ---------- EMAIL ----------
     const approvedEmail = findMember("email", email, {
       isVerified: true,
       approvalStatus: "Approved",
@@ -322,7 +322,6 @@ export const memberRegister = async (req, res) => {
       });
     }
 
-    // ---------- PHONE ----------
     const approvedPhone = findMember("primaryPhone", primaryPhone, {
       isVerified: true,
       approvalStatus: "Approved",
@@ -339,8 +338,6 @@ export const memberRegister = async (req, res) => {
     // ======================================================
     // STEP 13 — VERIFIED + PENDING VALIDATIONS
     // ======================================================
-
-    // ---------- UNIT ----------
     const pendingVerifiedUnit = findMember("unitNo", unitNo, {
       memberType,
       isVerified: true,
@@ -356,7 +353,6 @@ export const memberRegister = async (req, res) => {
       });
     }
 
-    // ---------- EMAIL ----------
     const pendingVerifiedEmail = findMember("email", email, {
       isVerified: true,
       approvalStatus: "Pending",
@@ -371,7 +367,6 @@ export const memberRegister = async (req, res) => {
       });
     }
 
-    // ---------- PHONE ----------
     const pendingVerifiedPhone = findMember("primaryPhone", primaryPhone, {
       isVerified: true,
       approvalStatus: "Pending",
@@ -407,43 +402,33 @@ export const memberRegister = async (req, res) => {
         });
       }
 
-      // SAME UNIT + SAME PHONE
-      // UPDATE EXISTING REQUEST
-
+      // SAME UNIT + SAME PHONE → UPDATE EXISTING REQUEST
       const otp = crypto.randomInt(100000, 999999).toString();
+      const otpExpireAt = new Date(Date.now() + OTP_EXPIRY_TIME); // ✅ variable
 
       pendingUnverifiedUnit.email = email;
-
       pendingUnverifiedUnit.password = hashedPassword;
-
       pendingUnverifiedUnit.ownerName = ownerName;
-
       pendingUnverifiedUnit.ownerPhone = ownerPhone;
-
       pendingUnverifiedUnit.renterName = renterName || null;
-
       pendingUnverifiedUnit.renterPhone = renterPhone || null;
-
       pendingUnverifiedUnit.fullName = fullName;
-
       pendingUnverifiedUnit.primaryPhone = primaryPhone;
-
       pendingUnverifiedUnit.shopName = shopName || null;
-
       pendingUnverifiedUnit.otp = otp;
-
-      pendingUnverifiedUnit.otpExpireAt = new Date(
-        Date.now() + OTP_EXPIRY_TIME
-      );
+      pendingUnverifiedUnit.otpExpireAt = otpExpireAt; // ✅ same variable use
 
       await pendingUnverifiedUnit.save();
 
-      sendEmail(email, otp, "verify").catch(() => {});
-
+      const emailSent = await sendEmail(email, otp, "verify");
       return res.status(200).json({
         success: true,
-        message: "Details updated successfully. OTP sent to new email.",
+        message: emailSent
+          ? "Details updated successfully. OTP sent to new email."
+          : "Details updated, but OTP email failed to send. Try Resend OTP.",
         memberId: pendingUnverifiedUnit._id,
+        otpExpireAt,
+        emailSent,
       });
     }
 
@@ -464,26 +449,25 @@ export const memberRegister = async (req, res) => {
         });
       }
 
-      // SAME EMAIL + SAME PHONE
-      // RESEND OTP FLOW
+      // SAME EMAIL + SAME PHONE → RESEND OTP FLOW
       const otp = crypto.randomInt(100000, 999999).toString();
+      const otpExpireAt = new Date(Date.now() + OTP_EXPIRY_TIME); // ✅ variable
 
       pendingUnverifiedEmail.password = hashedPassword;
-
       pendingUnverifiedEmail.otp = otp;
-
-      pendingUnverifiedEmail.otpExpireAt = new Date(
-        Date.now() + OTP_EXPIRY_TIME
-      );
+      pendingUnverifiedEmail.otpExpireAt = otpExpireAt; // ✅ same variable use
 
       await pendingUnverifiedEmail.save();
 
-      sendEmail(email, otp, "verify").catch(() => {});
-
+      const emailSent = await sendEmail(email, otp, "verify");
       return res.status(200).json({
         success: true,
-        message: "OTP resent successfully. Please verify your email.",
+        message: emailSent
+          ? "OTP resent successfully. Please verify your email."
+          : "Registered, but OTP email failed to send. Try Resend OTP.",
         memberId: pendingUnverifiedEmail._id,
+        otpExpireAt,
+        emailSent,
       });
     }
 
@@ -506,8 +490,8 @@ export const memberRegister = async (req, res) => {
     // STEP 15 — GENERATE OTP
     // ======================================================
     const otp = crypto.randomInt(100000, 999999).toString();
+    const otpExpireAt = new Date(Date.now() + OTP_EXPIRY_TIME);
 
-    const otpExpireAt = new Date(Date.now() + 5 * 60 * 1000); // ✅ 10 min se 5 min
     // ======================================================
     // STEP 16 — CREATE MEMBER
     // ======================================================
@@ -545,16 +529,19 @@ export const memberRegister = async (req, res) => {
     // ======================================================
     // STEP 17 — SEND EMAIL
     // ======================================================
-    sendEmail(email, otp, "verify").catch(() => {});
+    const emailSent = await sendEmail(email, otp, "verify");
 
     // ======================================================
     // SUCCESS RESPONSE
     // ======================================================
     return res.status(201).json({
       success: true,
-      message: "Registered successfully. Please verify OTP.",
+      message: emailSent
+        ? "Registered successfully. Please verify OTP."
+        : "Registered, but OTP email failed to send. Try Resend OTP.",
       memberId: member._id,
       otpExpireAt,
+      emailSent,
     });
   } catch (error) {
     console.error("Member Register Error:", error);

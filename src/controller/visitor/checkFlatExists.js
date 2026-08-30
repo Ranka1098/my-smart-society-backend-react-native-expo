@@ -2,7 +2,7 @@ import memberModel from "../../model/member.js";
 
 const checkFlatExists = async (req, res) => {
   try {
-    const { buildingCode, unitNo } = req.query;
+    const { buildingCode, unitNo, memberType } = req.query;
 
     if (!buildingCode || !unitNo) {
       return res
@@ -10,12 +10,21 @@ const checkFlatExists = async (req, res) => {
         .json({ success: false, message: "buildingCode aur unitNo required" });
     }
 
-    const exists = await memberModel.exists({
+    const filter = {
       buildingCode,
-      unitNo: unitNo.trim().toUpperCase(),
-    });
+      unitNo: new RegExp(`^${unitNo.trim()}$`, "i"), // ✅ FIX — case-insensitive match
+    };
+    if (memberType) filter.memberType = memberType; // "Flat" | "Shop"
 
-    return res.status(200).json({ success: true, exists: !!exists });
+    const member = await memberModel
+      .findOne(filter)
+      .select("fullName memberType unitNo");
+
+    return res.status(200).json({
+      success: true,
+      exists: !!member,
+      memberName: member?.fullName || null,
+    });
   } catch (error) {
     console.error("checkFlatExists error:", error);
     return res.status(500).json({ success: false, message: "Server error" });
