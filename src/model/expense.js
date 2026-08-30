@@ -19,14 +19,14 @@ const expenseSchema = new mongoose.Schema(
     description: {
       type: String,
       trim: true,
-      maxlength: [100, "Description cannot exceed 100 characters"],
+      maxlength: [400, "Description cannot exceed 400 characters"], // ✅ ~50 words safety net (char-level; word check bhi controller me)
     },
 
+    // ✅ ab required nahi — form se hata diya gaya, "N/A" default se aata hai
     paidTo: {
       type: String,
-      required: [true, "Paid to is required"],
       trim: true,
-      minlength: [2, "Paid to must be at least 2 characters"],
+      default: "N/A",
       maxlength: [100, "Paid to cannot exceed 100 characters"],
     },
 
@@ -45,12 +45,12 @@ const expenseSchema = new mongoose.Schema(
       type: String,
       required: [true, "Bill proof is required"],
       trim: true,
-      maxlength: [500, "Bill proof URL cannot exceed 500 characters"], // 100 → 500
+      maxlength: [500, "Bill proof URL cannot exceed 500 characters"],
     },
 
     buildingCode: {
       type: String,
-      required: [true, "Building code is required"], // keep required
+      required: [true, "Building code is required"],
       trim: true,
       minlength: [2, "Building code must be at least 2 characters"],
       maxlength: [20, "Building code cannot exceed 20 characters"],

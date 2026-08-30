@@ -3,19 +3,32 @@ import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
 import sharp from "sharp";
 import { notifyAllMembers } from "../../controller/notifcation/notifyMembers.js";
 
+const MAX_DESC_WORDS = 50;
+
 const createExpense = async (req, res) => {
   try {
     const buildingCode = req.buildingCode;
     const io = req.app.get("io");
     const buildingId = req.admin.buildingId;
-    const { billType, amount, description, paidTo, paymentMethod } = req.body;
+    let { billType, amount, description, paidTo, paymentMethod } = req.body;
 
-    if (!billType || amount === undefined || !paidTo || !paymentMethod) {
+    if (!billType || amount === undefined || !paymentMethod) {
       return res.status(400).json({
         success: false,
         message: "All required fields are mandatory",
       });
     }
+
+    // ✅ server-side word cap — frontend cap bypass ho sakta hai direct API hit se
+    if (description) {
+      const words = description.trim().split(/\s+/);
+      if (words.length > MAX_DESC_WORDS) {
+        description = words.slice(0, MAX_DESC_WORDS).join(" ");
+      }
+    }
+
+    // ✅ paidTo ab optional — form simplified, admin nahi bharta
+    paidTo = paidTo?.trim() || "N/A";
 
     if (!req.file) {
       return res.status(400).json({
@@ -60,7 +73,7 @@ const createExpense = async (req, res) => {
       io,
       buildingCode,
       buildingId,
-      type: "SOCIETY_EXPENSE", // ✅ change — VENDOR_EXPENSE se alag identify karne ke liye
+      type: "SOCIETY_EXPENSE",
       title: "New Expense Added 💸",
       message: `${billType} - ₹${amount} expense recorded`,
       referenceId: expense._id,
@@ -69,11 +82,11 @@ const createExpense = async (req, res) => {
         expenseId: expense._id.toString(),
         billType,
         amount: String(amount),
-        paidTo, // ✅ add — SocietyAllExpenseList list card ko chahiye
-        paymentMethod: paymentMethod, // ✅ add
-        description: description || "", // ✅ add
-        billProof: uploadedImage.secure_url, // ✅ add — "View Proof" button ke liye
-        createdAt: expense.createdAt.toISOString(), // ✅ add
+        paidTo,
+        paymentMethod: paymentMethod,
+        description: description || "",
+        billProof: uploadedImage.secure_url,
+        createdAt: expense.createdAt.toISOString(),
       },
     });
 
@@ -81,7 +94,7 @@ const createExpense = async (req, res) => {
       "[SOCIETY_EXPENSE] Notify done for expenseId:",
       expense._id.toString()
     );
-    
+
     io.to(`admin_${buildingCode}`).emit("dashboard_update", {
       type: "EXPENSE_ADDED",
     });
