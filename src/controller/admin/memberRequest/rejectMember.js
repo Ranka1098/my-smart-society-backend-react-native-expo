@@ -8,12 +8,8 @@ import memberRejectionNotificationEmail from "../../../utils/memberRejectionNoti
 const rejectMember = async (req, res) => {
   try {
     const { memberId } = req.params;
-    const { reason } = req.body; // optional
     const buildingCode = req.buildingCode; // adminAuth middleware se
 
-    // =========================
-    // MEMBER FIND
-    // =========================
     const member = await memberModel.findOne({
       _id: memberId,
       buildingCode,
@@ -28,20 +24,18 @@ const rejectMember = async (req, res) => {
       });
     }
 
-    // =========================
-    // REJECT
-    // =========================
     member.approvalStatus = "Rejected";
     await member.save();
 
-    // =========================
-    // ✅ ADD — member ko rejection email
-    // =========================
-    await memberRejectionNotificationEmail({
-      memberEmail: member.email,
-      memberName: member.fullName,
-      reason: reason || null,
-    });
+    try {
+      await memberRejectionNotificationEmail({
+        memberEmail: member.email,
+        memberName: member.fullName,
+        reason: null,
+      });
+    } catch (emailErr) {
+      console.log("Rejection email failed:", emailErr.message);
+    }
 
     return res.status(200).json({
       success: true,
@@ -56,5 +50,4 @@ const rejectMember = async (req, res) => {
     });
   }
 };
-
 export default rejectMember;
