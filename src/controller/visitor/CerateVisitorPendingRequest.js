@@ -115,7 +115,7 @@ const createVisitorPendingRequest = async (req, res) => {
     });
 
     // ── Guard ko pending confirm ──
-    io.to(`guard_${guardId}`).emit("visitor_pending", {
+    io.to(`guard_${buildingCode}`).emit("visitor_pending", {
       visitorId: visitor._id,
       name,
       flatNo,
