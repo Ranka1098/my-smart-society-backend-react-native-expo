@@ -48,6 +48,11 @@ const allowEntry = async (req, res) => {
       }
     );
 
+    // visitor.save() ke baad, "visitor_removed_from_preapproved" emit line ke turant baad add karo:
+    io.to(`guard_${visitor.buildingCode}`).emit("visitor_finalized", {
+      visitorId: visitor._id,
+    });
+
     // ✅ SOCKET: member ko turant batao guest allow ho gaya — GuestList se pending hata do
     io.to(`member_${visitor.respondedBy}`).emit("visitor_status_update", {
       visitorId: visitor._id,

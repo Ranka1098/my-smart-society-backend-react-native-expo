@@ -20,7 +20,9 @@ const logExit = async (req, res) => {
     }
 
     const io = req.app.get("io");
-
+    io.to(`guard_${visitor.buildingCode}`).emit("visitor_exited", {
+      visitorId: visitor._id,
+    });
     // ══════════════════════════════════════════════
     // WORKER EXIT
     // ══════════════════════════════════════════════

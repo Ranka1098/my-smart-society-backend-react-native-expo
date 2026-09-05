@@ -46,6 +46,12 @@ const quickWorkerEntry = async (req, res) => {
       entryTime: new Date(),
     });
 
+    // ✅ ADD — guard dashboard ko turant batao: visitorCount + currentlyInsideCount dono +1.
+    // Pehle koi guard-room event emit hi nahi hota tha, isliye realtime update nahi ho raha tha.
+    io.to(`guard_${buildingCode}`).emit("visitor_finalized", {
+      visitorId: visitor._id,
+    });
+
     const notifData = {
       visitorId: visitor._id.toString(),
       name: worker.name,

@@ -51,7 +51,7 @@ const memberApproveOrDeny = async (req, res) => {
 
     const io = req.app.get("io");
 
-    io.to(`guard_${visitor.guardId}`).emit("visitor_decision", {
+    io.to(`guard_${visitor.buildingCode}`).emit("visitor_decision", {
       visitorId: visitor._id,
       status: visitor.status,
       action,
