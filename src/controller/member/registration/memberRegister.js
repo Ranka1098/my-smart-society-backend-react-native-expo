@@ -285,7 +285,7 @@ export const memberRegister = async (req, res) => {
       return existingMembers.find((member) => {
         if (member[field] !== value) return false;
         return Object.entries(extraFilters).every(
-          ([key, val]) => member[key] === val
+          ([key, val]) => member[key] === val,
         );
       });
     };
@@ -380,7 +380,7 @@ export const memberRegister = async (req, res) => {
           "This phone number is already verified and waiting for admin approval",
       });
     }
-
+    const isExpired = (doc) => !doc.otpExpireAt || doc.otpExpireAt < new Date();
     // ======================================================
     // STEP 14 — UNVERIFIED PENDING VALIDATIONS
     // ======================================================
@@ -393,16 +393,30 @@ export const memberRegister = async (req, res) => {
     });
 
     if (pendingUnverifiedUnit) {
-      // SAME UNIT + DIFFERENT PHONE
       if (pendingUnverifiedUnit.primaryPhone !== primaryPhone) {
-        return res.status(400).json({
-          success: false,
-          field: "unitNo",
-          message: "This flat/shop already has a pending registration request",
-        });
+        if (!isExpired(pendingUnverifiedUnit)) {
+          return res.status(400).json({
+            success: false,
+            field: "unitNo",
+            message:
+              "This flat/shop already has a pending registration request",
+          });
+        }
+        // ✅ expired stale record — overwrite karke aage badho, block mat karo
       }
 
-      // SAME UNIT + SAME PHONE → UPDATE EXISTING REQUEST
+      const emailConflict = existingMembers.find(
+        (m) =>
+          m._id.toString() !== pendingUnverifiedUnit._id.toString() &&
+          m.email === email,
+      );
+      if (emailConflict) {
+        return res.status(400).json({
+          success: false,
+          field: "email",
+          message: "This email is already used in another registration",
+        });
+      }
       const otp = crypto.randomInt(100000, 999999).toString();
       const otpExpireAt = new Date(Date.now() + OTP_EXPIRY_TIME); // ✅ variable
 
@@ -441,21 +455,37 @@ export const memberRegister = async (req, res) => {
     if (pendingUnverifiedEmail) {
       // SAME EMAIL + DIFFERENT PHONE
       if (pendingUnverifiedEmail.primaryPhone !== primaryPhone) {
+        if (!isExpired(pendingUnverifiedEmail)) {
+          return res.status(400).json({
+            success: false,
+            field: "primaryPhone",
+            message:
+              "This email already has a pending request with another phone number",
+          });
+        }
+      }
+      const unitConflict = existingMembers.find(
+        (m) =>
+          m._id.toString() !== pendingUnverifiedEmail._id.toString() &&
+          m.unitNo === unitNo &&
+          m.memberType === memberType,
+      );
+      if (unitConflict) {
         return res.status(400).json({
           success: false,
-          field: "primaryPhone",
-          message:
-            "This email already has a pending request with another phone number",
+          field: "unitNo",
+          message: "This unit is already used in another registration",
         });
       }
-
       // SAME EMAIL + SAME PHONE → RESEND OTP FLOW
       const otp = crypto.randomInt(100000, 999999).toString();
       const otpExpireAt = new Date(Date.now() + OTP_EXPIRY_TIME); // ✅ variable
 
       pendingUnverifiedEmail.password = hashedPassword;
+      pendingUnverifiedEmail.primaryPhone = primaryPhone; // ✅ ADD — expired-diff-phone case me naya phone save ho
+      pendingUnverifiedEmail.unitNo = unitNo; // ✅ ADD — agar unit bhi change hua ho
       pendingUnverifiedEmail.otp = otp;
-      pendingUnverifiedEmail.otpExpireAt = otpExpireAt; // ✅ same variable use
+      pendingUnverifiedEmail.otpExpireAt = otpExpireAt;
 
       await pendingUnverifiedEmail.save();
 
@@ -478,12 +508,15 @@ export const memberRegister = async (req, res) => {
     });
 
     if (pendingUnverifiedPhone) {
-      return res.status(400).json({
-        success: false,
-        field: "primaryPhone",
-        message:
-          "This phone number already has a pending request with another email",
-      });
+      if (!isExpired(pendingUnverifiedPhone)) {
+        return res.status(400).json({
+          success: false,
+          field: "primaryPhone",
+          message:
+            "This phone number already has a pending request with another email",
+        });
+      }
+      await memberModel.deleteOne({ _id: pendingUnverifiedPhone._id });
     }
 
     // ======================================================
