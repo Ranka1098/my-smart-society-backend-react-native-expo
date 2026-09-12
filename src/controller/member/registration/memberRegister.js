@@ -271,263 +271,99 @@ export const memberRegister = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // ======================================================
-    // STEP 11 — FETCH EXISTING MEMBERS
+    // STEP 11 — UNIT ALREADY REGISTERED? (approved or already occupied)
+    // Ek unit ka sirf ek hi active record hona chahiye is building me
     // ======================================================
-    const existingMembers = await memberModel.find({
+    const unitRecord = await memberModel.findOne({
       buildingCode,
-      $or: [{ email }, { primaryPhone }, { unitNo, memberType }],
-    });
-
-    // ======================================================
-    // HELPER FUNCTION
-    // ======================================================
-    const findMember = (field, value, extraFilters = {}) => {
-      return existingMembers.find((member) => {
-        if (member[field] !== value) return false;
-        return Object.entries(extraFilters).every(
-          ([key, val]) => member[key] === val,
-        );
-      });
-    };
-
-    // ======================================================
-    // STEP 12 — APPROVED VALIDATIONS
-    // ======================================================
-    const approvedUnit = findMember("unitNo", unitNo, {
+      unitNo,
       memberType,
-      isVerified: true,
-      approvalStatus: "Approved",
     });
 
-    if (approvedUnit) {
-      return res.status(400).json({
-        success: false,
-        field: "unitNo",
-        message: `This ${
-          memberType === "Flat" ? "flat" : "shop"
-        } no ${unitNo} is already registered`,
-      });
-    }
+    if (unitRecord) {
+      // ---------- SAME UNIT + PENDING + SAME EMAIL/PHONE + UNVERIFIED ----------
+      // ✅ RULE — OTP verify nahi kiya, wapas same credential se retry allowed
+      const isSamePerson =
+        unitRecord.approvalStatus === "Pending" &&
+        !unitRecord.isVerified &&
+        unitRecord.email === email &&
+        unitRecord.primaryPhone === primaryPhone;
 
-    const approvedEmail = findMember("email", email, {
-      isVerified: true,
-      approvalStatus: "Approved",
-    });
-
-    if (approvedEmail) {
-      return res.status(400).json({
-        success: false,
-        field: "email",
-        message: "This email is already registered",
-      });
-    }
-
-    const approvedPhone = findMember("primaryPhone", primaryPhone, {
-      isVerified: true,
-      approvalStatus: "Approved",
-    });
-
-    if (approvedPhone) {
-      return res.status(400).json({
-        success: false,
-        field: "primaryPhone",
-        message: "This phone number is already registered",
-      });
-    }
-
-    // ======================================================
-    // STEP 13 — VERIFIED + PENDING VALIDATIONS
-    // ======================================================
-    const pendingVerifiedUnit = findMember("unitNo", unitNo, {
-      memberType,
-      isVerified: true,
-      approvalStatus: "Pending",
-    });
-
-    if (pendingVerifiedUnit) {
-      return res.status(400).json({
-        success: false,
-        field: "unitNo",
-        message:
-          "This flat/shop is already verified and waiting for admin approval",
-      });
-    }
-
-    const pendingVerifiedEmail = findMember("email", email, {
-      isVerified: true,
-      approvalStatus: "Pending",
-    });
-
-    if (pendingVerifiedEmail) {
-      return res.status(400).json({
-        success: false,
-        field: "email",
-        message:
-          "This email is already verified and waiting for admin approval",
-      });
-    }
-
-    const pendingVerifiedPhone = findMember("primaryPhone", primaryPhone, {
-      isVerified: true,
-      approvalStatus: "Pending",
-    });
-
-    if (pendingVerifiedPhone) {
-      return res.status(400).json({
-        success: false,
-        field: "primaryPhone",
-        message:
-          "This phone number is already verified and waiting for admin approval",
-      });
-    }
-    const isExpired = (doc) => !doc.otpExpireAt || doc.otpExpireAt < new Date();
-    // ======================================================
-    // STEP 14 — UNVERIFIED PENDING VALIDATIONS
-    // ======================================================
-
-    // ---------- UNIT ----------
-    const pendingUnverifiedUnit = findMember("unitNo", unitNo, {
-      memberType,
-      isVerified: false,
-      approvalStatus: "Pending",
-    });
-
-    if (pendingUnverifiedUnit) {
-      if (pendingUnverifiedUnit.primaryPhone !== primaryPhone) {
-        if (!isExpired(pendingUnverifiedUnit)) {
-          return res.status(400).json({
-            success: false,
-            field: "unitNo",
-            message:
-              "This flat/shop already has a pending registration request",
-          });
-        }
-        // ✅ expired stale record — overwrite karke aage badho, block mat karo
-      }
-
-      const emailConflict = existingMembers.find(
-        (m) =>
-          m._id.toString() !== pendingUnverifiedUnit._id.toString() &&
-          m.email === email,
-      );
-      if (emailConflict) {
-        return res.status(400).json({
-          success: false,
-          field: "email",
-          message: "This email is already used in another registration",
-        });
-      }
-      const otp = crypto.randomInt(100000, 999999).toString();
-      const otpExpireAt = new Date(Date.now() + OTP_EXPIRY_TIME); // ✅ variable
-
-      pendingUnverifiedUnit.email = email;
-      pendingUnverifiedUnit.password = hashedPassword;
-      pendingUnverifiedUnit.ownerName = ownerName;
-      pendingUnverifiedUnit.ownerPhone = ownerPhone;
-      pendingUnverifiedUnit.renterName = renterName || null;
-      pendingUnverifiedUnit.renterPhone = renterPhone || null;
-      pendingUnverifiedUnit.fullName = fullName;
-      pendingUnverifiedUnit.primaryPhone = primaryPhone;
-      pendingUnverifiedUnit.shopName = shopName || null;
-      pendingUnverifiedUnit.otp = otp;
-      pendingUnverifiedUnit.otpExpireAt = otpExpireAt; // ✅ same variable use
-
-      await pendingUnverifiedUnit.save();
-
-      const emailSent = await sendEmail(email, otp, "verify");
-      return res.status(200).json({
-        success: true,
-        message: emailSent
-          ? "Details updated successfully. OTP sent to new email."
-          : "Details updated, but OTP email failed to send. Try Resend OTP.",
-        memberId: pendingUnverifiedUnit._id,
-        otpExpireAt,
-        emailSent,
-      });
-    }
-
-    // ---------- EMAIL ----------
-    const pendingUnverifiedEmail = findMember("email", email, {
-      isVerified: false,
-      approvalStatus: "Pending",
-    });
-
-    if (pendingUnverifiedEmail) {
-      // SAME EMAIL + DIFFERENT PHONE
-      if (pendingUnverifiedEmail.primaryPhone !== primaryPhone) {
-        if (!isExpired(pendingUnverifiedEmail)) {
-          return res.status(400).json({
-            success: false,
-            field: "primaryPhone",
-            message:
-              "This email already has a pending request with another phone number",
-          });
-        }
-      }
-      const unitConflict = existingMembers.find(
-        (m) =>
-          m._id.toString() !== pendingUnverifiedEmail._id.toString() &&
-          m.unitNo === unitNo &&
-          m.memberType === memberType,
-      );
-      if (unitConflict) {
+      if (!isSamePerson) {
         return res.status(400).json({
           success: false,
           field: "unitNo",
-          message: "This unit is already used in another registration",
+          message: `This ${
+            memberType === "Flat" ? "flat" : "shop"
+          } no ${unitNo} already has a registration for this building`,
         });
       }
-      // SAME EMAIL + SAME PHONE → RESEND OTP FLOW
+
+      // ✅ RESEND OTP — same person, same unit, same email/phone, unverified
       const otp = crypto.randomInt(100000, 999999).toString();
-      const otpExpireAt = new Date(Date.now() + OTP_EXPIRY_TIME); // ✅ variable
+      const otpExpireAt = new Date(Date.now() + OTP_EXPIRY_TIME);
 
-      pendingUnverifiedEmail.password = hashedPassword;
-      pendingUnverifiedEmail.primaryPhone = primaryPhone; // ✅ ADD — expired-diff-phone case me naya phone save ho
-      pendingUnverifiedEmail.unitNo = unitNo; // ✅ ADD — agar unit bhi change hua ho
-      pendingUnverifiedEmail.otp = otp;
-      pendingUnverifiedEmail.otpExpireAt = otpExpireAt;
+      unitRecord.memberStatus = memberStatus;
+      unitRecord.shopName = shopName || null;
+      unitRecord.ownerName = ownerName;
+      unitRecord.ownerPhone = ownerPhone;
+      unitRecord.renterName = renterName || null;
+      unitRecord.renterPhone = renterPhone || null;
+      unitRecord.fullName = fullName;
+      unitRecord.password = hashedPassword;
+      unitRecord.otp = otp;
+      unitRecord.otpExpireAt = otpExpireAt;
 
-      await pendingUnverifiedEmail.save();
+      await unitRecord.save();
 
       const emailSent = await sendEmail(email, otp, "verify");
       return res.status(200).json({
         success: true,
         message: emailSent
-          ? "OTP resent successfully. Please verify your email."
-          : "Registered, but OTP email failed to send. Try Resend OTP.",
-        memberId: pendingUnverifiedEmail._id,
+          ? "OTP resent successfully."
+          : "Details updated, but OTP email failed to send. Try Resend OTP.",
+        memberId: unitRecord._id,
         otpExpireAt,
         emailSent,
       });
     }
 
-    // ---------- PHONE ----------
-    const pendingUnverifiedPhone = findMember("primaryPhone", primaryPhone, {
-      isVerified: false,
-      approvalStatus: "Pending",
-    });
+    // ======================================================
+    // STEP 12 — EMAIL ALREADY USED IN THIS BUILDING? (permanent, any status)
+    // Ek email is building me sirf ek hi member ke liye use ho sakta hai — hamesha ke liye
+    // ======================================================
+    const emailUsed = await memberModel.findOne({ buildingCode, email });
 
-    if (pendingUnverifiedPhone) {
-      if (!isExpired(pendingUnverifiedPhone)) {
-        return res.status(400).json({
-          success: false,
-          field: "primaryPhone",
-          message:
-            "This phone number already has a pending request with another email",
-        });
-      }
-      await memberModel.deleteOne({ _id: pendingUnverifiedPhone._id });
+    if (emailUsed) {
+      return res.status(400).json({
+        success: false,
+        field: "email",
+        message: "This email is already used in this society",
+      });
     }
 
     // ======================================================
-    // STEP 15 — GENERATE OTP
+    // STEP 13 — PHONE ALREADY USED IN THIS BUILDING? (permanent, any status)
+    // ======================================================
+    const phoneUsed = await memberModel.findOne({
+      buildingCode,
+      primaryPhone,
+    });
+
+    if (phoneUsed) {
+      return res.status(400).json({
+        success: false,
+        field: "primaryPhone",
+        message: "This phone number is already used in this society",
+      });
+    }
+
+    // ======================================================
+    // STEP 14 — FRESH REGISTRATION (naya unit, naya email, naya phone)
     // ======================================================
     const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpireAt = new Date(Date.now() + OTP_EXPIRY_TIME);
 
-    // ======================================================
-    // STEP 16 — CREATE MEMBER
-    // ======================================================
     const member = await memberModel.create({
       memberType,
       memberStatus,
@@ -559,14 +395,8 @@ export const memberRegister = async (req, res) => {
       role: "primary",
     });
 
-    // ======================================================
-    // STEP 17 — SEND EMAIL
-    // ======================================================
     const emailSent = await sendEmail(email, otp, "verify");
 
-    // ======================================================
-    // SUCCESS RESPONSE
-    // ======================================================
     return res.status(201).json({
       success: true,
       message: emailSent
@@ -580,13 +410,13 @@ export const memberRegister = async (req, res) => {
     console.error("Member Register Error:", error);
 
     // ======================================================
-    // DUPLICATE KEY ERROR
+    // DUPLICATE KEY ERROR (safety net — DB-level unique index)
     // ======================================================
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];
 
       const messages = {
-        unitNo: "This flat/shop  is already registered",
+        unitNo: "This flat/shop is already registered",
         email: "This email is already registered",
         primaryPhone: "This phone number is already registered",
       };
