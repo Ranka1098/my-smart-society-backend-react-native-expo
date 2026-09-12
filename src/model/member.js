@@ -172,7 +172,11 @@ const memberSchema = new mongoose.Schema(
       enum: ["Pending", "Approved", "Rejected"],
       default: "Pending",
     },
-
+    approvedAt: {
+      // ✅ NAYA
+      type: Date,
+      default: null,
+    },
     // =========================
     // ROLE & RELATION
     // =========================
@@ -216,7 +220,7 @@ const memberSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // =========================
@@ -228,7 +232,7 @@ memberSchema.index(
   {
     unique: true,
     partialFilterExpression: { role: "primary" }, // sirf primary pe enforce
-  }
+  },
 );
 // export default mongoose.model("Member", memberSchema);
 export default mongoose.models.Member || mongoose.model("Member", memberSchema);

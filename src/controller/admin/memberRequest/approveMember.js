@@ -32,6 +32,7 @@ const approveMember = async (req, res) => {
     // APPROVE
     // =========================
     member.approvalStatus = "Approved";
+    member.approvedAt = new Date();   
     await member.save();
 
     // =========================
