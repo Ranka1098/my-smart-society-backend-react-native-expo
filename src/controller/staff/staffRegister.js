@@ -28,7 +28,7 @@ const compressAndUpload = async (file, maxWidth, folder) => {
 const emailRegex =
   /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.(com|in|org|net|co|edu|gov|io|dev|app)$/i;
 const phoneRegex = /^[0-9]{10}$/;
-const passwordRegex = /^.{6,20}$/; // model minlength:6 se match
+const passwordRegex = /^.{4,20}$/; // model minlength:6 se match
 const buildingCodeRegex = /^[A-Z0-9-]+$/i;
 const gibberishRegex = /(.)\1{5,}|(..)\2{2,}|[^aeiou\s]{6,}/i;
 const validRoles = [
@@ -208,7 +208,7 @@ const staffRegister = async (req, res) => {
             ? compressAndUpload(
                 req.files.workerIdProof[0],
                 1200,
-                "staffIdProofs"
+                "staffIdProofs",
               )
             : Promise.resolve(null),
         ]);
@@ -259,7 +259,7 @@ const staffRegister = async (req, res) => {
             ? compressAndUpload(
                 req.files.workerIdProof[0],
                 1200,
-                "staffIdProofs"
+                "staffIdProofs",
               )
             : Promise.resolve(null),
         ]);
@@ -363,9 +363,16 @@ const staffRegister = async (req, res) => {
     // DUPLICATE KEY ERROR (unique index: email + buildingCode)
     // ======================================================
     if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0];
+      const fieldMessages = {
+        email: "Staff already registered with this email",
+        workerPhoneNumber: "Staff already registered with this phone number",
+      };
       return res.status(400).json({
         success: false,
-        message: "Staff already registered with this email",
+        field,
+        message:
+          fieldMessages[field] || "Duplicate entry — staff already exists",
       });
     }
 
