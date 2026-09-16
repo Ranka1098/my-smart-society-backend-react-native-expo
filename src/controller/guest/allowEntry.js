@@ -36,7 +36,7 @@ const allowEntry = async (req, res) => {
 
     const guard = await Staff.findById(guardId).select("name");
     const member = await Member.findById(visitor.respondedBy).select(
-      "fcmToken"
+      "fcmToken",
     );
     const io = req.app.get("io");
 
@@ -45,7 +45,7 @@ const allowEntry = async (req, res) => {
       "visitor_removed_from_preapproved",
       {
         visitorId: visitor._id,
-      }
+      },
     );
 
     // visitor.save() ke baad, "visitor_removed_from_preapproved" emit line ke turant baad add karo:
@@ -66,12 +66,7 @@ const allowEntry = async (req, res) => {
       memberFcmToken: member?.fcmToken,
       type: "GUEST_APPROVED",
       title: "Guest Entry Approved ✅",
-      message: `${visitor.name} ko ${
-        guard?.name || "Guard"
-      } ne entry de di (${new Date(visitor.approvedAt).toLocaleTimeString(
-        "en-IN",
-        { hour: "2-digit", minute: "2-digit" }
-      )})`,
+      message: `${visitor.name} ko ${guard?.name || "Guard"} ne entry de di`,
       referenceId: visitor._id,
       data: {
         visitorId: visitor._id,

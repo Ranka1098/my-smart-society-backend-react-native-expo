@@ -59,6 +59,7 @@ const quickWorkerEntry = async (req, res) => {
       flatNo: visitor.flatNo,
       memberType: worker.memberType, // ✅ NAYA
       entryTime: visitor.entryTime,
+       workerType: worker.workerType, // ✅ ADD — ye line
     };
     const notifTitle = "Worker Entry";
     const notifMessage = `${worker.name} (${worker.category}) ne ${

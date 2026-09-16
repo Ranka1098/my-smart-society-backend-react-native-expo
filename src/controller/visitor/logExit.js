@@ -11,7 +11,7 @@ const logExit = async (req, res) => {
     const visitor = await Visitor.findByIdAndUpdate(
       req.params.id,
       { status: "Exited", exitTime: new Date() },
-      { new: true }
+      { new: true },
     );
     if (!visitor) {
       return res
@@ -34,6 +34,7 @@ const logExit = async (req, res) => {
         flatNo: visitor.flatNo,
         memberType: visitor.memberType, // ✅ NAYA
         exitTime: visitor.exitTime,
+        workerType: visitor.flatNo === "Society" ? "SocietyStaff" : "FlatStaff",
       };
       const notifTitle = "Worker Exit";
       // ✅ FIX — "worker" nahi "visitor" use karo, field names bhi sahi karo
@@ -100,12 +101,7 @@ const logExit = async (req, res) => {
         memberFcmToken: member?.fcmToken,
         type: "GUEST_EXIT",
         title: "Guest Exited 🚪",
-        message: `${visitor.name} exit ho gaya (${new Date(
-          visitor.exitTime
-        ).toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })})`,
+        message: `${visitor.name} ne abhi society se exit kiya hai`,
         referenceId: visitor._id,
         data: {
           visitorId: visitor._id,
