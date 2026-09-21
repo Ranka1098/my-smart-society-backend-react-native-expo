@@ -110,9 +110,12 @@ const createVisitorPendingRequest = async (req, res) => {
       expiresAt: expiresAt.toISOString(),
     };
 
-    members.forEach((m) => {
-      io.to(`member_${m._id}`).emit("visitor_request", visitorPayload);
-    });
+members.forEach((m) => {
+  io.to(`member_${m._id}`).emit("visitor_request", {
+    ...visitorPayload,
+    serverTime: Date.now(), // ✅ NAYA
+  });
+});
 
     // ── Guard ko pending confirm ──
     io.to(`guard_${buildingCode}`).emit("visitor_pending", {
@@ -130,6 +133,7 @@ const createVisitorPendingRequest = async (req, res) => {
         ttlSeconds: NOTIFICATION_TTL,
         membersNotified: members.length,
         photoUrl,
+         serverTime: Date.now(), // ✅ NAYA
       },
     });
   } catch (error) {

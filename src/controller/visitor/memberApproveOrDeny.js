@@ -38,7 +38,7 @@ const memberApproveOrDeny = async (req, res) => {
       visitor.approvedAt = now;
       visitor.respondedBy = memberId;
     } else {
-      visitor.status = "Rejected";
+      visitor.status = "Denied";
       visitor.rejectedAt = now;
       visitor.rejectionReason = rejectionReason || "Member ne deny kiya";
       visitor.respondedBy = memberId;

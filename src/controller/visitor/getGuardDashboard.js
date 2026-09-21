@@ -1,14 +1,15 @@
 import Visitor from "../../model/Visitor.js";
-import Notice from "../../model/notice.js"; // apna actual notice model
+import Notice from "../../model/notice.js";
 
-// ✅ aaj ki date IST calendar-day format me ("YYYY-MM-DD")
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 const todayIST = () => {
-  const now = new Date();
-  const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000); // UTC + 5:30
+  const ist = new Date(Date.now() + IST_OFFSET_MS);
   return ist.toISOString().split("T")[0];
 };
 
-const isValidDateStr = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+const isValidDateStr = (s) => DATE_RE.test(s);
 
 const getGuardDashboard = async (req, res) => {
   try {
@@ -20,16 +21,9 @@ const getGuardDashboard = async (req, res) => {
         .json({ success: false, message: "buildingCode required" });
     }
 
-    // ✅ "date" IST calendar-day hai (frontend se "YYYY-MM-DD" aata).
-    // Naya Date(date) server timezone (UTC on Render) me midnight bana deta,
-    // jo IST se 5:30 peeche shift ho jaata — isliye din ka data 1 din piche
-    // dikhta tha. Explicit IST offset (+05:30) laga ke sahi UTC instant banao.
-    // ✅ NAYA — agar frontend galat/invalid date bheje (device timezone bug
-    // ya kuch aur), fallback todayIST() pe — crash ya silent-wrong-date se bacho.
     const dateStr = isValidDateStr(date) ? date : todayIST();
     const startOfDay = new Date(`${dateStr}T00:00:00.000+05:30`);
     const endOfDay = new Date(`${dateStr}T23:59:59.999+05:30`);
-
     const isToday = dateStr === todayIST();
 
     const [
@@ -50,25 +44,28 @@ const getGuardDashboard = async (req, res) => {
       })
         .populate("respondedBy", "name")
         .sort({ createdAt: -1 })
-        .limit(5),
+        .limit(5)
+        .lean(),
       Visitor.find({
         buildingCode,
         status: { $in: ["Approved", "ForcedEntry"] },
         createdAt: { $gte: startOfDay, $lte: endOfDay },
       })
         .sort({ entryTime: -1 })
-        .limit(5),
+        .limit(5)
+        .lean(),
       isToday
         ? Visitor.countDocuments({
             buildingCode,
             status: { $in: ["Approved", "ForcedEntry"] },
+            entryTime: { $gte: startOfDay, $lte: endOfDay }, // fix: aaj ka entry hi count ho
             exitTime: null,
           })
         : 0,
-      Notice.find({ buildingCode }).sort({ createdAt: -1 }).limit(5),
+      Notice.find({ buildingCode }).sort({ createdAt: -1 }).limit(5).lean(),
     ]);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         stats: {
@@ -83,7 +80,7 @@ const getGuardDashboard = async (req, res) => {
     });
   } catch (e) {
     console.error("getGuardDashboard error:", e);
-    res.status(500).json({ success: false, message: "Server error" });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 

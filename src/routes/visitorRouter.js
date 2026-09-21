@@ -12,6 +12,8 @@ import memberPendingVisitor from "../controller/visitor/memberPendingVisitor.js"
 import getGuardDashboard from "../controller/visitor/getGuardDashboard.js";
 import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
 import checkFlatExists from "../controller/visitor/checkFlatExists.js";
+import checkVisitorStatus from "../controller/visitor/checkVisitorStatus.js";
+import getPendingVisitorsForGuard from "../controller/visitor/getPendingVisitorsForGuard.js";
 const visitorRouter = express.Router();
 
 visitorRouter.post(
@@ -66,5 +68,8 @@ visitorRouter.get(
   checkBuildingSubscription,
   memberPendingVisitor
 );
+visitorRouter.post("/staff/checkVisitorStatus",staffAuth, checkVisitorStatus);
+
+visitorRouter.get("/staff/pendingVisitors", staffAuth, getPendingVisitorsForGuard);
 
 export default visitorRouter;

@@ -6,6 +6,13 @@ import {
   notifyStaffToMember,
 } from "../../controller/notifcation/notifyMembers.js";
 
+/**
+ * Marks a visitor as Exited and notifies the relevant audience:
+ *  - PreApprovedWorker  → society admin (society staff) or flat/shop members (flat staff)
+ *  - FCM-approved guest → the member who approved (visitor.respondedBy)
+ *  - ManualCall-verified guest → all members that were originally notified
+ *    (visitor.notifiedMembers), since respondedBy is never set for this method
+ */
 const logExit = async (req, res) => {
   try {
     const visitor = await Visitor.findByIdAndUpdate(
@@ -20,9 +27,12 @@ const logExit = async (req, res) => {
     }
 
     const io = req.app.get("io");
+
+    // Let the guard's own dashboard drop this entry from its live list
     io.to(`guard_${visitor.buildingCode}`).emit("visitor_exited", {
       visitorId: visitor._id,
     });
+
     // ══════════════════════════════════════════════
     // WORKER EXIT
     // ══════════════════════════════════════════════
@@ -32,21 +42,19 @@ const logExit = async (req, res) => {
         name: visitor.name,
         category: visitor.purpose,
         flatNo: visitor.flatNo,
-        memberType: visitor.memberType, // ✅ NAYA
+        memberType: visitor.memberType,
         exitTime: visitor.exitTime,
         workerType: visitor.flatNo === "Society" ? "SocietyStaff" : "FlatStaff",
       };
       const notifTitle = "Worker Exit";
-      // ✅ FIX — "worker" nahi "visitor" use karo, field names bhi sahi karo
       const notifMessage = `${visitor.name} (${visitor.purpose}) ne ${
         visitor.flatNo === "Society"
           ? "Society"
-          : `${visitor.memberType === "Shop" ? "Shop" : "Flat"} ${
-              visitor.flatNo
-            }`
+          : `${visitor.memberType === "Shop" ? "Shop" : "Flat"} ${visitor.flatNo}`
       } ne abhi exit kiya hai.`;
 
       if (visitor.flatNo === "Society") {
+        // Society-level staff → notify admin only
         await notifyWorkerToAdmin({
           io,
           buildingCode: visitor.buildingCode,
@@ -58,11 +66,12 @@ const logExit = async (req, res) => {
           data: notifData,
         });
       } else {
+        // Flat/shop-level staff → notify that unit's members
         const members = await memberModel
           .find({
             buildingCode: visitor.buildingCode,
             unitNo: visitor.flatNo,
-            ...(visitor.memberType ? { memberType: visitor.memberType } : {}), // ✅ NAYA
+            ...(visitor.memberType ? { memberType: visitor.memberType } : {}),
           })
           .select("_id fcmToken");
 
@@ -81,8 +90,9 @@ const logExit = async (req, res) => {
         }
       }
     }
+
     // ══════════════════════════════════════════════
-    // GUEST EXIT
+    // GUEST EXIT — FCM approved (member approved in-app, respondedBy set)
     // ══════════════════════════════════════════════
     else if (visitor.respondedBy) {
       const member = await memberModel
@@ -112,6 +122,45 @@ const logExit = async (req, res) => {
         },
       });
     }
+
+  // ══════════════════════════════════════════════
+// GUEST EXIT — ManualCall verified YA Force Entry
+// (dono me respondedBy set nahi hota, notifiedMembers se fallback)
+// ══════════════════════════════════════════════
+else if (
+  visitor.verificationMethod === "ManualCall" ||
+  visitor.verificationMethod === "ForcedEntry" ||
+  visitor.status === "ForcedEntry"   // agar verificationMethod alag rakha hai, status se bhi catch kar
+) {
+  const members = await memberModel
+    .find({ _id: { $in: visitor.notifiedMembers || [] } })
+    .select("_id fcmToken");
+
+  for (const m of members) {
+    io.to(`member_${m._id}`).emit("visitor_status_update", {
+      visitorId: visitor._id,
+      status: "Exited",
+    });
+
+    await notifyStaffToMember({
+      io,
+      buildingCode: visitor.buildingCode,
+      memberId: m._id,
+      memberFcmToken: m.fcmToken,
+      type: "GUEST_EXIT",
+      title: "Guest Exited 🚪",
+      message: `${visitor.name} ne abhi society se exit kiya hai`,
+      referenceId: visitor._id,
+      data: {
+        visitorId: visitor._id,
+        status: "Exited",
+        exitTime: visitor.exitTime,
+        name: visitor.name,
+        purpose: visitor.purpose,
+      },
+    });
+  }
+}
 
     return res
       .status(200)
