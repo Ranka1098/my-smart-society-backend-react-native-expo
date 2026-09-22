@@ -56,9 +56,15 @@ const createComplaint = async (req, res) => {
     // ===============================
     // ✅ MEMBER DETAILS
     // ===============================
-    const unitType = member.memberType;
-    const unitNo = member.unitNo;
-    const memberName = member.ownerName ?? member.renterName;
+// ===============================
+// ✅ MEMBER DETAILS
+// ===============================
+const unitType = member.memberType;
+const unitNo = member.unitNo;
+const memberName =
+  member.memberStatus === "Rent"
+    ? member.renterName || member.ownerName
+    : member.ownerName; // ✅ FIX
 
     // ===============================
     // ✅ CREATE COMPLAINT
