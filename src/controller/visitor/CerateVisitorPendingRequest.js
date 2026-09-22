@@ -93,6 +93,7 @@ const createVisitorPendingRequest = async (req, res) => {
           purpose,
           photoUrl: photoUrl || "",
           expiresAt: expiresAt.toISOString(),
+           serverTime: String(Date.now()), // ✅ ADD
         }
       );
     }

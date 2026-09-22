@@ -13,6 +13,7 @@ import markSingleAdminNotificationRead from "../controller/notifcation/admin_not
 import memberNotifications from "../controller/notifcation/member_notifcation/memberNotifications.js";
 import getUnreadMemberNotificationCount from "../controller/notifcation/member_notifcation/getUnreadMemberNotificationCount.js";
 import markSingleMemberNotificationRead from "../controller/notifcation/member_notifcation/markSingleMemberNotificationRead .js";
+import markAllMemberNotificationsRead from "../controller/notifcation/member_notifcation/markAllMemberNotificationsRead.js";
 
 // staff
 import staffNotifications from "../controller/notifcation/staff_notifcation/staffNotifications.js";
@@ -95,6 +96,11 @@ notifcationRouter.patch(
   "/familyNotification/:id/read",
   memberAuth,
   markSingleFamilyNotificationRead
+);
+notifcationRouter.patch(
+  "/member/notifications/read-all",
+  memberAuth,
+  markAllMemberNotificationsRead
 );
 notifcationRouter.get(
   "/familyNotification/unreadCount",
