@@ -10,15 +10,19 @@ const sendEmailOtp = async (email, otp, type = "verify") => {
   try {
     let subject = "",
       heading = "",
-      message = "";
+      message = "",
+      validity = "";
+
     if (type === "forgot") {
       subject = "Reset Your Password - OTP";
       heading = "Password Reset Request";
       message = "Use this OTP to reset your password";
+      validity = "10 minutes"; // ✅ forget-password TTL
     } else {
       subject = "Account Verification OTP";
       heading = "Verify Your Account";
       message = "Use this OTP to verify your account";
+      validity = "5 minutes"; // ✅ registration TTL
     }
 
     const emailData = {
@@ -30,7 +34,7 @@ const sendEmailOtp = async (email, otp, type = "verify") => {
           <h2>${heading}</h2>
           <p>${message}</p>
           <h1 style="color: #2d89ef;">${otp}</h1>
-          <p>This OTP is valid for 1 minute.</p>
+          <p>This OTP is valid for ${validity}.</p>
         </div>
       `,
     };
