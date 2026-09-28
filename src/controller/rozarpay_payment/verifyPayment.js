@@ -79,20 +79,21 @@ const verifyPayment = async (req, res) => {
       razorpay_payment_id
     );
 
-    txn.status = "success";
-    txn.gatewayTxnId = razorpay_payment_id;
-    txn.method = method;
-    txn.payerAccount = payerAccount;
-    await txn.save();
+   await applyRenewal(building, {
+  method,
+  gateway: "Razorpay",
+  gatewayTxnId: razorpay_payment_id,
+  payerAccount,
+  transactionId: txn._id,
+  changedBy: { role: "admin", id: building.admin },
+});
+await building.save();
 
-    await applyRenewal(building, {
-      method,
-      gateway: "Razorpay",
-      gatewayTxnId: razorpay_payment_id,
-      payerAccount,
-      transactionId: txn._id,
-      changedBy: { role: "admin", id: building.admin },
-    });
+txn.status = "success";
+txn.gatewayTxnId = razorpay_payment_id;
+txn.method = method;
+txn.payerAccount = payerAccount;
+await txn.save();
 
     await building.save();
 

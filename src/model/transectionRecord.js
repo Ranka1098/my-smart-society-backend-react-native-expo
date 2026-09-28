@@ -16,7 +16,7 @@ const transactionRecord = new mongoose.Schema(
 
     method: {
       type: String,
-      enum: ["upi", "card", "netbanking", "cash", "manual", "free"],
+      enum: ["upi","card","netbanking","wallet","emi","paylater","cash","manual","free"],
       required: true,
     },
     gateway: { type: String, default: null }, // "Cashfree" | null (manual)
