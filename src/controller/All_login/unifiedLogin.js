@@ -23,7 +23,6 @@ const unifiedLogin = async (req, res) => {
       StaffModel.findOne({ workerPhoneNumber: mobile, role: "security" }),
     ]);
 
-
     const matches = [admin, member, staff].filter(Boolean);
 
     if (matches.length === 0) {
@@ -47,7 +46,7 @@ const unifiedLogin = async (req, res) => {
       "STEP 3 - resolved role",
       role,
       "buildingCode",
-      user.buildingCode
+      user.buildingCode,
     );
 
     // ── building checks ──
@@ -82,6 +81,8 @@ const unifiedLogin = async (req, res) => {
           building.subscriptionStatus === "blocked"
             ? "Building blocked. Contact support."
             : "Subscription expired, please renew",
+        role,
+        buildingCode: user.buildingCode,
       });
     }
 
@@ -140,7 +141,7 @@ const unifiedLogin = async (req, res) => {
     // ── password check ──
     console.log(
       "STEP 6 - before bcrypt.compare, user.password exists?",
-      !!user.password
+      !!user.password,
     );
     const isMatch = await bcrypt.compare(password, user.password);
     console.log("STEP 7 - password match result", isMatch);
@@ -162,7 +163,7 @@ const unifiedLogin = async (req, res) => {
         buildingCode: user.buildingCode,
       },
       process.env.JWT_SECRET,
-      { expiresIn: role === "security" ? "24h" : "7d" }
+      { expiresIn: role === "security" ? "24h" : "7d" },
     );
     console.log("STEP 9 - token generated, sending 200 response");
 
