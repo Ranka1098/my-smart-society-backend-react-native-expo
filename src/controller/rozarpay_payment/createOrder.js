@@ -20,34 +20,40 @@ const createOrder = async (req, res) => {
         .json({ success: false, message: "Building not found" });
     }
 
-    // createOrder.js me add karo
+    // Blocked building payment se unblock nahi hogi, sirf Super Admin karega
+    if (building.subscriptionStatus === "blocked") {
+      return res.status(403).json({
+        success: false,
+        code: "BUILDING_BLOCKED",
+        message: "Building blocked. Contact support.",
+      });
+    }
+
     if (
       building.subscriptionStatus === "active" &&
       building.subscriptionExpiry > new Date()
     ) {
       return res.status(400).json({
         success: false,
-        message: "Subscription already active, renewal not needed abhi.",
+        message: "Subscription already active, renewal not needed.",
       });
     }
 
-    const { activeFlats, activeShops } = await getActiveUnitCounts(
-      buildingCode
-    );
+    const { activeFlats, activeShops } =
+      await getActiveUnitCounts(buildingCode);
     const amount = calculateAmount(activeFlats, activeShops);
     if (amount <= 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Amount must be > 0" });
+      return res.status(400).json({
+        success: false,
+        message: "No active flats or shops found to bill.",
+      });
     }
 
-    const options = {
+    const order = await razorpayInstance.orders.create({
       amount: Math.round(amount * 100), // paise
       currency: "INR",
       receipt: `renew_${building._id}_${Date.now()}`,
-    };
-
-    const order = await razorpayInstance.orders.create(options);
+    });
 
     await Transaction.create({
       building: building._id,
@@ -61,14 +67,14 @@ const createOrder = async (req, res) => {
       idempotencyKey: order.id,
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       order,
       razorpayKeyId: process.env.RAZORPAY_KEY_ID,
     });
   } catch (err) {
     console.error("Create order error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
