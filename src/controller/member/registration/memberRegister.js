@@ -8,7 +8,8 @@ import crypto from "crypto";
 import memberModel from "../../../model/member.js";
 import buildingModel from "../../../model/building.js";
 import sendEmail from "../../../utils/sendEmailOtp.js";
-
+import adminModel from "../../../model/admin.js";
+import StaffModel from "../../../model/staff.js";
 const OTP_EXPIRY_TIME = 5 * 60 * 1000;
 
 // ======================================================
@@ -357,6 +358,21 @@ export const memberRegister = async (req, res) => {
         message: "This phone number is already used in this society",
       });
     }
+
+const [adminWithPhone, staffWithPhone] = await Promise.all([
+  adminModel.findOne({ phone: primaryPhone }),
+  StaffModel.findOne({ workerPhoneNumber: primaryPhone }),
+]);
+
+if (adminWithPhone || staffWithPhone) {
+  return res.status(400).json({
+    success: false,
+    field: "primaryPhone",
+    message: `This phone number is already registered as ${
+      adminWithPhone ? "admin" : "staff"
+    }`,
+  });
+}
 
     // ======================================================
     // STEP 14 — FRESH REGISTRATION (naya unit, naya email, naya phone)

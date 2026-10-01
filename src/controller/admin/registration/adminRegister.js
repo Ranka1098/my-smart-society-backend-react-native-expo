@@ -5,7 +5,8 @@
 import adminModel from "../../../model/admin.js";
 import bcrypt from "bcrypt";
 import sendEmailOtp from "../../../utils/sendEmailOtp.js";
-
+import memberModel from "../../../model/member.js";
+import StaffModel from "../../../model/staff.js";
 // OTP Generator
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -173,6 +174,20 @@ const adminRegister = async (req, res) => {
       });
     }
 
+    const [memberWithPhone, staffWithPhone] = await Promise.all([
+      memberModel.findOne({ primaryPhone: phone }),
+      StaffModel.findOne({ workerPhoneNumber: phone }),
+    ]);
+
+    if (memberWithPhone || staffWithPhone) {
+      return res.status(400).json({
+        success: false,
+        message: `This number is already registered as ${
+          memberWithPhone ? "a member" : "staff"
+        }. Use a different number for admin.`,
+      });
+    }
+
     // =========================
     // 🔥 OTP SETUP
     // =========================
@@ -237,7 +252,7 @@ const adminRegister = async (req, res) => {
       isVerified: false,
     });
 
-      const emailSent = await sendEmailOtp(email, otp);
+    const emailSent = await sendEmailOtp(email, otp);
 
     return res.status(201).json({
       success: true,

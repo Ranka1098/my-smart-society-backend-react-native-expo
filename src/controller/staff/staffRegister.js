@@ -9,7 +9,8 @@ import crypto from "crypto";
 import sharp from "sharp";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
 import sendOtpEmail from "../../utils/sendEmailOtp.js";
-
+import adminModel from "../../model/admin.js";
+import memberModel from "../../model/member.js";
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 
 // ✅ helper — compress + upload ek function mein, taaki Promise.all se
@@ -183,7 +184,20 @@ const staffRegister = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Building code not found" });
     }
+    const [adminWithPhone, memberWithPhone] = await Promise.all([
+      adminModel.findOne({ phone: workerPhoneNumber }),
+      memberModel.findOne({ primaryPhone: workerPhoneNumber }),
+    ]);
 
+    if (adminWithPhone || memberWithPhone) {
+      return res.status(400).json({
+        success: false,
+        field: "workerPhoneNumber",
+        message: `This phone number is already registered as ${
+          adminWithPhone ? "admin" : "member"
+        }`,
+      });
+    }
     // ======================================================
     // STEP 7 — EMAIL UNIQUE PER BUILDING
     // ======================================================
