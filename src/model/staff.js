@@ -42,6 +42,7 @@ const staffSchema = new mongoose.Schema(
 
     email: {
       type: String,
+      unique: true,
       required: [true, "Email is required"],
       trim: true,
       lowercase: true,
@@ -117,15 +118,24 @@ const staffSchema = new mongoose.Schema(
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
+    registeredAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 staffSchema.index({ buildingCode: 1, status: 1 });
-staffSchema.index({ email: 1, buildingCode: 1 }, { unique: true });
-
+staffSchema.index(
+  { registeredAt: 1 },
+  {
+    expireAfterSeconds: 24 * 60 * 60,
+    partialFilterExpression: { isEmailVerified: false },
+  },
+);
 // StaffModel.js ka last line change karo
 const StaffModel =
   mongoose.models.Staff || mongoose.model("Staff", staffSchema);

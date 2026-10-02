@@ -129,15 +129,15 @@ const memberSchema = new mongoose.Schema(
     // =========================
     // LOGIN (sirf primary ke liye)
     // =========================
+    // ✅ FIX — unique/sparse hataya. sparse sirf "missing" field skip karta hai,
+    // null nahi. Family member ka email null hota hai, isliye 2nd family par
+    // E11000 aata tha. Unique ab neeche partial index se (sirf string email par).
     email: {
       type: String,
       default: null,
-      unique: true,
-      sparse: true, // null pe unique skip
       lowercase: true,
       trim: true,
-
-      maxlength: [50, "email  cannot exceed 50 characters"],
+      maxlength: [100, "email cannot exceed 100 characters"],
     },
 
     password: {
@@ -224,6 +224,17 @@ const memberSchema = new mongoose.Schema(
 );
 
 // =========================
+// EMAIL UNIQUE (sirf jahan email string hai, null/family skip)
+// =========================
+memberSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { email: { $type: "string" } },
+  },
+);
+
+// =========================
 // COMPOUND INDEX
 // ek unit me sirf ek primary member
 // =========================
@@ -234,5 +245,18 @@ memberSchema.index(
     partialFilterExpression: { role: "primary" }, // sirf primary pe enforce
   },
 );
+
+// =========================
+// TTL — otpExpireAt par (har retry/resend par naya hota hai)
+// unverified primary 24 ghante baad delete, family kabhi nahi
+// =========================
+memberSchema.index(
+  { otpExpireAt: 1 },
+  {
+    expireAfterSeconds: 24 * 60 * 60,
+    partialFilterExpression: { isVerified: false, role: "primary" },
+  },
+);
+
 // export default mongoose.model("Member", memberSchema);
 export default mongoose.models.Member || mongoose.model("Member", memberSchema);

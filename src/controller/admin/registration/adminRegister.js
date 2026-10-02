@@ -4,13 +4,13 @@
 
 import adminModel from "../../../model/admin.js";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import sendEmailOtp from "../../../utils/sendEmailOtp.js";
 import memberModel from "../../../model/member.js";
 import StaffModel from "../../../model/staff.js";
+
 // OTP Generator
-const generateOtp = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
+const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 
 // Password Regex
 const passwordRegex = /^.{4,20}$/;
@@ -100,6 +100,14 @@ const adminRegister = async (req, res) => {
       });
     }
 
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number must be exactly 10 digits",
+      });
+    }
+
     if (adminName.length > 50) {
       return res.status(400).json({
         success: false,
@@ -174,19 +182,42 @@ const adminRegister = async (req, res) => {
       });
     }
 
-    const [memberWithPhone, staffWithPhone] = await Promise.all([
-      memberModel.findOne({ primaryPhone: phone }),
-      StaffModel.findOne({ workerPhoneNumber: phone }),
+    // =========================
+    // ✅ CROSS-ROLE — sirf VERIFIED member/staff block karega
+    // =========================
+    const [memberDup, staffDup] = await Promise.all([
+      memberModel.findOne({
+        isVerified: true,
+        $or: [{ primaryPhone: phone }, { email }],
+      }),
+      StaffModel.findOne({
+        isEmailVerified: true,
+        $or: [{ workerPhoneNumber: phone }, { email }],
+      }),
     ]);
 
-    if (memberWithPhone || staffWithPhone) {
+    if (memberDup || staffDup) {
+      const dup = memberDup || staffDup;
+      const role = memberDup ? "member" : "staff";
+      const field = dup.email === email ? "Email" : "Phone number";
       return res.status(400).json({
         success: false,
-        message: `This number is already registered as ${
-          memberWithPhone ? "a member" : "staff"
-        }. Use a different number for admin.`,
+        message: `${field} is already registered as ${role}`,
       });
     }
+
+    // ✅ dusre role ke UNVERIFIED record hatao (pehle OTP verify karne wala jeete)
+    await Promise.all([
+      memberModel.deleteMany({
+        isVerified: false,
+        role: "primary",
+        $or: [{ primaryPhone: phone }, { email }],
+      }),
+      StaffModel.deleteMany({
+        isEmailVerified: false,
+        $or: [{ workerPhoneNumber: phone }, { email }],
+      }),
+    ]);
 
     // =========================
     // 🔥 OTP SETUP
@@ -264,6 +295,15 @@ const adminRegister = async (req, res) => {
     });
   } catch (error) {
     console.log("Admin Register Error:", error);
+
+    // ✅ DUPLICATE KEY (email ek admin ka, phone dusre ka — findOne ek hi deta hai)
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0];
+      return res.status(400).json({
+        success: false,
+        message: `${field === "phone" ? "Phone number" : "Email"} already registered with another account`,
+      });
+    }
 
     return res.status(500).json({
       success: false,

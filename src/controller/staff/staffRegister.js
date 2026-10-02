@@ -15,7 +15,6 @@ const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 
 // ✅ helper — compress + upload ek function mein, taaki Promise.all se
 // dono photos (workerPhoto + workerIdProof) PARALLEL chal sakein
-// (pehle sequential the — ek ke baad ek — isliye register slow tha)
 const compressAndUpload = async (file, maxWidth, folder) => {
   const compressed = await sharp(file.buffer)
     .resize({ width: maxWidth, withoutEnlargement: true })
@@ -25,13 +24,26 @@ const compressAndUpload = async (file, maxWidth, folder) => {
   return uploaded.secure_url;
 };
 
+// ✅ helper — admin/member jaisa: util ka return value (true/false) use karo,
+// throw ho to bhi false. Pehle fail par bhi emailSent: true ja sakta tha.
+const trySendOtp = async (email, otp) => {
+  try {
+    return !!(await sendOtpEmail(email, otp, "verify"));
+  } catch (e) {
+    return false;
+  }
+};
+
 // ✅ regex/validation constants — member/admin jaisa hi pattern
 const emailRegex =
   /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.(com|in|org|net|co|edu|gov|io|dev|app)$/i;
 const phoneRegex = /^[0-9]{10}$/;
-const passwordRegex = /^.{4,20}$/; // model minlength:6 se match
+const passwordRegex = /^.{4,20}$/;
 const buildingCodeRegex = /^[A-Z0-9-]+$/i;
+// naam ke liye (purana)
 const gibberishRegex = /(.)\1{5,}|(..)\2{2,}|[^aeiou\s]{6,}/i;
+// ✅ address ke liye — "1204/B-3" jaise valid address reject na ho
+const addressGibberishRegex = /(.)\1{5,}|(..)\2{3,}/;
 const validRoles = [
   "security",
   "cleaner",
@@ -59,19 +71,17 @@ const staffRegister = async (req, res) => {
 
     // ======================================================
     // STEP 1 — NORMALIZE
+    // ✅ password trim HATAYA (login mein trim nahi hota)
     // ======================================================
     buildingCode = buildingCode?.trim();
     role = role?.trim().toLowerCase();
     workerName = workerName?.trim();
     email = email?.trim().toLowerCase();
     workerPhoneNumber = workerPhoneNumber?.trim();
-    password = password?.trim();
     workerAddress = workerAddress?.trim();
 
     // ======================================================
     // STEP 2 — REQUIRED FIELDS
-    // ✅ FIX — pehle ye check hi nahi tha, isliye buildingCode.toUpperCase()
-    // ya email.toLowerCase() jaisi lines undefined pe crash (500) karti thi
     // ======================================================
     if (
       !buildingCode ||
@@ -133,7 +143,7 @@ const staffRegister = async (req, res) => {
       return res.status(400).json({
         success: false,
         field: "password",
-        message: "Password must be 6-20 characters",
+        message: "Password must be 4-20 characters",
       });
     }
 
@@ -147,7 +157,7 @@ const staffRegister = async (req, res) => {
         message: "Worker name looks invalid — please enter a real name",
       });
     }
-    if (gibberishRegex.test(workerAddress)) {
+    if (addressGibberishRegex.test(workerAddress)) {
       return res.status(400).json({
         success: false,
         field: "workerAddress",
@@ -184,36 +194,76 @@ const staffRegister = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Building code not found" });
     }
-    const [adminWithPhone, memberWithPhone] = await Promise.all([
-      adminModel.findOne({ phone: workerPhoneNumber }),
-      memberModel.findOne({ primaryPhone: workerPhoneNumber }),
+
+    // ======================================================
+    // STEP 6.5 — CROSS-ROLE: sirf VERIFIED admin/member block karega
+    // ======================================================
+    const [adminDup, memberDup] = await Promise.all([
+      adminModel.findOne({
+        isVerified: true,
+        $or: [{ phone: workerPhoneNumber }, { email }],
+      }),
+      memberModel.findOne({
+        isVerified: true,
+        $or: [{ primaryPhone: workerPhoneNumber }, { email }],
+      }),
     ]);
 
-    if (adminWithPhone || memberWithPhone) {
+    if (adminDup || memberDup) {
+      const dup = adminDup || memberDup;
+      const dupRole = adminDup ? "admin" : "member";
+      const isEmail = dup.email === email;
       return res.status(400).json({
         success: false,
-        field: "workerPhoneNumber",
-        message: `This phone number is already registered as ${
-          adminWithPhone ? "admin" : "member"
-        }`,
+        field: isEmail ? "email" : "workerPhoneNumber",
+        message: `${isEmail ? "Email" : "Phone number"} is already registered as ${dupRole}`,
       });
     }
+
+    // ✅ UNVERIFIED record hatao (pehle OTP verify karne wala jeete)
+    await Promise.all([
+      adminModel.deleteMany({
+        isVerified: false,
+        $or: [{ phone: workerPhoneNumber }, { email }],
+      }),
+      memberModel.deleteMany({
+        isVerified: false,
+        role: "primary",
+        $or: [{ primaryPhone: workerPhoneNumber }, { email }],
+      }),
+      // dusre email ka unverified staff, wahi phone: unique index E11000 na de
+      StaffModel.deleteMany({
+        isEmailVerified: false,
+        workerPhoneNumber,
+        email: { $ne: email },
+      }),
+    ]);
+
     // ======================================================
-    // STEP 7 — EMAIL UNIQUE PER BUILDING
+    // STEP 7 — EMAIL UNIQUE (poori DB mein)
+    // ✅ dusri building ka sirf VERIFIED staff block karega
     // ======================================================
-    const existing = await StaffModel.findOne({
-      email,
-      buildingCode: buildingCode.toUpperCase(),
-    });
+    const existing = await StaffModel.findOne({ email });
+
+    if (
+      existing &&
+      existing.isEmailVerified &&
+      existing.buildingCode !== buildingCode.toUpperCase()
+    ) {
+      return res.status(400).json({
+        success: false,
+        field: "email",
+        message: "This email is already registered",
+      });
+    }
 
     if (existing) {
-      // pehle reject ho chuka hai to fresh registration jaisa treat karo
-      if (existing.status === "rejected") {
+      // ✅ rejected YA unverified — dono ek hi block: sab details naye se
+      // (pehle unverified retry mein password/naam/address purane reh jate the)
+      if (existing.status === "rejected" || !existing.isEmailVerified) {
         let workerPhotoUrl = existing.workerPhoto;
         let workerIdProofUrl = existing.workerIdProof;
 
-        // ✅ FIX — pehle sequential tha (photo upload khatam hone ka wait,
-        // phir ID upload shuru), ab Promise.all se dono ek saath chalte hain
         const [newPhotoUrl, newIdUrl] = await Promise.all([
           req.files?.workerPhoto?.[0]
             ? compressAndUpload(req.files.workerPhoto[0], 800, "staffPhotos")
@@ -231,7 +281,10 @@ const staffRegister = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const otp = generateOtp();
+        const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
+        existing.buildingCode = buildingCode.toUpperCase();
+        existing.buildingId = building._id;
         existing.role = role;
         existing.workerName = workerName;
         existing.workerPhoneNumber = workerPhoneNumber;
@@ -240,19 +293,13 @@ const staffRegister = async (req, res) => {
         existing.workerPhoto = workerPhotoUrl;
         existing.workerIdProof = workerIdProofUrl;
         existing.otp = otp;
-        const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // ✅ variable banaya taaki response mein bhej sake
         existing.otpExpiry = otpExpiry;
         existing.isEmailVerified = false; // dobara verify karana hoga
         existing.status = "pending"; // reset
-
+        existing.registeredAt = new Date(); // TTL reset
         await existing.save();
 
-        let emailSent = true;
-        try {
-          await sendOtpEmail(email, otp, "verify");
-        } catch (e) {
-          emailSent = false;
-        }
+        const emailSent = await trySendOtp(email, otp);
         return res.status(200).json({
           success: true,
           message: emailSent
@@ -263,45 +310,7 @@ const staffRegister = async (req, res) => {
         });
       }
 
-      if (!existing.isEmailVerified) {
-        // ✅ FIX — parallel upload (Promise.all), pehle sequential tha
-        const [newPhotoUrl, newIdUrl] = await Promise.all([
-          req.files?.workerPhoto?.[0]
-            ? compressAndUpload(req.files.workerPhoto[0], 800, "staffPhotos")
-            : Promise.resolve(null),
-          req.files?.workerIdProof?.[0]
-            ? compressAndUpload(
-                req.files.workerIdProof[0],
-                1200,
-                "staffIdProofs",
-              )
-            : Promise.resolve(null),
-        ]);
-        if (newPhotoUrl) existing.workerPhoto = newPhotoUrl;
-        if (newIdUrl) existing.workerIdProof = newIdUrl;
-
-        const otp = generateOtp();
-        const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // ✅ variable banaya taaki response mein bhej sake
-        existing.otp = otp;
-        existing.otpExpiry = otpExpiry;
-        await existing.save();
-
-        let emailSent = true;
-        try {
-          await sendOtpEmail(email, otp, "verify");
-        } catch (e) {
-          emailSent = false;
-        }
-        return res.status(200).json({
-          success: true,
-          message: emailSent
-            ? "OTP resent to your email"
-            : "OTP generated, but email failed to send",
-          emailSent,
-          otpExpireAt: otpExpiry,
-        });
-      }
-
+      // verified + approved/pending, same building
       return res.status(409).json({
         success: false,
         message: "Staff already registered with this email",
@@ -309,8 +318,7 @@ const staffRegister = async (req, res) => {
     }
 
     // ======================================================
-    // STEP 8 — UPLOAD IMAGES
-    // ✅ FIX — parallel upload (Promise.all), pehle sequential tha
+    // STEP 8 — UPLOAD IMAGES (parallel)
     // ======================================================
     const [workerPhotoUrl, workerIdProofUrl] = await Promise.all([
       req.files?.workerPhoto?.[0]
@@ -356,12 +364,7 @@ const staffRegister = async (req, res) => {
     // ======================================================
     // STEP 12 — SEND OTP
     // ======================================================
-    let emailSent = true;
-    try {
-      await sendOtpEmail(email, otp, "verify");
-    } catch (e) {
-      emailSent = false;
-    }
+    const emailSent = await trySendOtp(email, otp);
     return res.status(201).json({
       success: true,
       message: emailSent
@@ -374,7 +377,7 @@ const staffRegister = async (req, res) => {
     console.error("staffRegister error:", error);
 
     // ======================================================
-    // DUPLICATE KEY ERROR (unique index: email + buildingCode)
+    // DUPLICATE KEY ERROR (unique index: email / workerPhoneNumber)
     // ======================================================
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern || {})[0];

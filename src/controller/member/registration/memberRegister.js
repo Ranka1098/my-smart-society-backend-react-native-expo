@@ -33,12 +33,13 @@ export const memberRegister = async (req, res) => {
 
     // ======================================================
     // STEP 1 — NORMALIZE INPUTS
+    // ✅ buildingCode + unitNo uppercase (model /^[A-Z0-9]+$/ maangta hai)
+    // ✅ password trim HATAYA (login mein trim nahi hota)
     // ======================================================
     email = email?.toLowerCase().trim();
-    password = password?.trim();
 
-    buildingCode = buildingCode?.trim();
-    unitNo = unitNo?.trim();
+    buildingCode = buildingCode?.trim().toUpperCase();
+    unitNo = unitNo?.trim().toUpperCase();
     shopName = shopName?.trim();
 
     ownerName = ownerName?.trim();
@@ -111,8 +112,7 @@ export const memberRegister = async (req, res) => {
       return res.status(400).json({
         success: false,
         field: "password",
-        message:
-          "Password must contain uppercase, lowercase, number and special character",
+        message: "Password must be 4-20 characters",
       });
     }
 
@@ -189,7 +189,8 @@ export const memberRegister = async (req, res) => {
         message: "Unit number too long (max 20 characters)",
       });
     }
-    if (email.length > 50) {
+    // ✅ 50 se 100 (admin/staff jaisa)
+    if (email.length > 100) {
       return res
         .status(400)
         .json({ success: false, field: "email", message: "Email too long" });
@@ -272,14 +273,26 @@ export const memberRegister = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // ======================================================
-    // STEP 11 — UNIT ALREADY REGISTERED? (approved or already occupied)
-    // Ek unit ka sirf ek hi active record hona chahiye is building me
+    // STEP 11 — UNIT ALREADY REGISTERED?
+    // ✅ sirf primary record dekho (family record nahi)
     // ======================================================
-    const unitRecord = await memberModel.findOne({
+    let unitRecord = await memberModel.findOne({
       buildingCode,
       unitNo,
       memberType,
+      role: "primary",
     });
+
+    // ✅ UNIT SQUAT FIX — unverified record kisi aur ka hai to hata do
+    // (koi fake email se flat le ke OTP na bhare to asli owner block na ho)
+    if (
+      unitRecord &&
+      !unitRecord.isVerified &&
+      !(unitRecord.email === email && unitRecord.primaryPhone === primaryPhone)
+    ) {
+      await memberModel.deleteOne({ _id: unitRecord._id });
+      unitRecord = null;
+    }
 
     if (unitRecord) {
       // ---------- SAME UNIT + PENDING + SAME EMAIL/PHONE + UNVERIFIED ----------
@@ -330,49 +343,77 @@ export const memberRegister = async (req, res) => {
     }
 
     // ======================================================
-    // STEP 12 — EMAIL ALREADY USED IN THIS BUILDING? (permanent, any status)
-    // Ek email is building me sirf ek hi member ke liye use ho sakta hai — hamesha ke liye
+    // STEP 12 — EMAIL ALREADY REGISTERED? (sirf VERIFIED member)
     // ======================================================
-    const emailUsed = await memberModel.findOne({ buildingCode, email });
+    const emailUsed = await memberModel.findOne({ email, isVerified: true });
 
     if (emailUsed) {
       return res.status(400).json({
         success: false,
         field: "email",
-        message: "This email is already used in this society",
+        message: "This email is already registered",
       });
     }
 
     // ======================================================
-    // STEP 13 — PHONE ALREADY USED IN THIS BUILDING? (permanent, any status)
+    // STEP 13 — PHONE ALREADY REGISTERED? (sirf VERIFIED member)
     // ======================================================
     const phoneUsed = await memberModel.findOne({
-      buildingCode,
       primaryPhone,
+      isVerified: true,
     });
 
     if (phoneUsed) {
       return res.status(400).json({
         success: false,
         field: "primaryPhone",
-        message: "This phone number is already used in this society",
+        message: "This phone number is already registered",
       });
     }
 
-const [adminWithPhone, staffWithPhone] = await Promise.all([
-  adminModel.findOne({ phone: primaryPhone }),
-  StaffModel.findOne({ workerPhoneNumber: primaryPhone }),
-]);
+    // ======================================================
+    // STEP 13.5 — CROSS-ROLE: sirf VERIFIED admin/staff block karega
+    // ======================================================
+    const [adminDup, staffDup] = await Promise.all([
+      adminModel.findOne({
+        isVerified: true,
+        $or: [{ phone: primaryPhone }, { email }],
+      }),
+      StaffModel.findOne({
+        isEmailVerified: true,
+        $or: [{ workerPhoneNumber: primaryPhone }, { email }],
+      }),
+    ]);
 
-if (adminWithPhone || staffWithPhone) {
-  return res.status(400).json({
-    success: false,
-    field: "primaryPhone",
-    message: `This phone number is already registered as ${
-      adminWithPhone ? "admin" : "staff"
-    }`,
-  });
-}
+    if (adminDup || staffDup) {
+      const dup = adminDup || staffDup;
+      const role = adminDup ? "admin" : "staff";
+      const isEmail = dup.email === email;
+      return res.status(400).json({
+        success: false,
+        field: isEmail ? "email" : "primaryPhone",
+        message: `${isEmail ? "Email" : "Phone number"} is already registered as ${role}`,
+      });
+    }
+
+    // ✅ UNVERIFIED record hatao (pehle OTP verify karne wala jeete)
+    // member wala delete zaroori: warna dusre unit ke unverified record ka
+    // email/phone unique index se E11000 dega
+    await Promise.all([
+      adminModel.deleteMany({
+        isVerified: false,
+        $or: [{ phone: primaryPhone }, { email }],
+      }),
+      StaffModel.deleteMany({
+        isEmailVerified: false,
+        $or: [{ workerPhoneNumber: primaryPhone }, { email }],
+      }),
+      memberModel.deleteMany({
+        isVerified: false,
+        role: "primary",
+        $or: [{ primaryPhone }, { email }],
+      }),
+    ]);
 
     // ======================================================
     // STEP 14 — FRESH REGISTRATION (naya unit, naya email, naya phone)
@@ -429,9 +470,11 @@ if (adminWithPhone || staffWithPhone) {
     // DUPLICATE KEY ERROR (safety net — DB-level unique index)
     // ======================================================
     if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern)[0];
+      const field = Object.keys(error.keyPattern || {})[0];
 
       const messages = {
+        // partial unit index ka pehla key buildingCode hota hai
+        buildingCode: "This flat/shop is already registered",
         unitNo: "This flat/shop is already registered",
         email: "This email is already registered",
         primaryPhone: "This phone number is already registered",

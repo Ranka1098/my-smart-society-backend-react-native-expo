@@ -108,9 +108,20 @@ const adminSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-const adminModel = mongoose.model("Admin", adminSchema);
+// ✅ TTL otpExpireAt par (har resend/retry par naya hota hai)
+// unverified admin otpExpireAt ke 24 ghante baad delete
+adminSchema.index(
+  { otpExpireAt: 1 },
+  {
+    expireAfterSeconds: 24 * 60 * 60,
+    partialFilterExpression: { isVerified: false },
+  },
+);
+
+const adminModel =
+  mongoose.models.Admin || mongoose.model("Admin", adminSchema);
 
 export default adminModel;

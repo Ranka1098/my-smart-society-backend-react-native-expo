@@ -29,7 +29,7 @@ const unifiedLogin = async (req, res) => {
       console.log("STEP 2a - no matches, returning 401");
       return res
         .status(401)
-        .json({ success: false, message: "Invalid mobile number" });
+        .json({ success: false, message: "Mobile number not found" });
     }
     if (matches.length > 1) {
       console.log("STEP 2b - multi role, returning 409");
