@@ -19,6 +19,14 @@ const createExpense = async (req, res) => {
       });
     }
 
+    const amountNum = Number(amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0 || amountNum > 1000000) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount must be between 1 and 10,00,000",
+      });
+    }
+
     // ✅ server-side word cap — frontend cap bypass ho sakta hai direct API hit se
     if (description) {
       const words = description.trim().split(/\s+/);
@@ -51,7 +59,7 @@ const createExpense = async (req, res) => {
 
     const uploadedImage = await uploadToCloudinary(
       compressedImageBuffer,
-      "expenseBills"
+      "expenseBills",
     );
 
     const expense = await expenseModel.create({
@@ -66,7 +74,7 @@ const createExpense = async (req, res) => {
 
     console.log(
       "[SOCIETY_EXPENSE] Notifying members — expenseId:",
-      expense._id.toString()
+      expense._id.toString(),
     );
 
     await notifyAllMembers({
@@ -92,7 +100,7 @@ const createExpense = async (req, res) => {
 
     console.log(
       "[SOCIETY_EXPENSE] Notify done for expenseId:",
-      expense._id.toString()
+      expense._id.toString(),
     );
 
     io.to(`admin_${buildingCode}`).emit("dashboard_update", {
