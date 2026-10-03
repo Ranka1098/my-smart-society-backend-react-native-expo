@@ -1,28 +1,26 @@
 import StaffModel from "../../model/staff.js";
-import staffRejectionNotificationEmail from "../../utils/staffRejectionNotificationEmail.js"; // apna actual path
+import staffRejectionNotificationEmail from "../../utils/staffRejectionNotificationEmail.js";
 
 const rejectStaff = async (req, res) => {
   try {
     const { buildingCode } = req;
     const { staffId } = req.params;
 
-    const staff = await StaffModel.findOne({ _id: staffId, buildingCode });
+    // ✅ reject = delete (atomic). Email/phone free ho jata hai
+    const staff = await StaffModel.findOneAndDelete({
+      _id: staffId,
+      buildingCode,
+      status: "pending",
+    });
+
     if (!staff) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Staff not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Staff not found or already processed",
+      });
     }
 
-    if (staff.status !== "pending") {
-      return res
-        .status(400)
-        .json({ success: false, message: `Staff already ${staff.status}` });
-    }
-
-    staff.status = "rejected";
-    await staff.save();
-
-    // ✅ rejection email (non-blocking)
+    // rejection email (non-blocking). Delete ke baad bhi `staff` mein data hai
     try {
       await staffRejectionNotificationEmail({
         staffEmail: staff.email,

@@ -3,16 +3,18 @@
 // =========================
 
 import memberModel from "../../../model/member.js";
-import memberRejectionNotificationEmail from "../../../utils/memberRejectionNotificationEmail.js"; // apna actual path check kar
+import memberRejectionNotificationEmail from "../../../utils/memberRejectionNotificationEmail.js";
 
 const rejectMember = async (req, res) => {
   try {
     const { memberId } = req.params;
     const buildingCode = req.buildingCode; // adminAuth middleware se
 
-    const member = await memberModel.findOne({
+    // ✅ reject = delete (atomic, double-click par bhi ek hi baar chalega)
+    const member = await memberModel.findOneAndDelete({
       _id: memberId,
       buildingCode,
+      role: "primary",
       isVerified: true,
       approvalStatus: "Pending",
     });
@@ -24,9 +26,7 @@ const rejectMember = async (req, res) => {
       });
     }
 
-    member.approvalStatus = "Rejected";
-    await member.save();
-
+    // delete ke baad bhi `member` mein purana data hai, email bhej do
     try {
       await memberRejectionNotificationEmail({
         memberEmail: member.email,

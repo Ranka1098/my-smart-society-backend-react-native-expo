@@ -13,18 +13,21 @@ const rejectWorkerByMember = async (req, res) => {
       workerType: "FlatStaff",
       flatNo,
     });
+    if (worker.memberType && worker.memberType !== req.member.memberType) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Worker request nahi mila" });
+    }
     if (!worker) {
       return res
         .status(404)
         .json({ success: false, message: "Worker request nahi mila" });
     }
     if (worker.status !== "PendingApproval") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: `Ye request already ${worker.status} hai`,
-        });
+      return res.status(400).json({
+        success: false,
+        message: `Ye request already ${worker.status} hai`,
+      });
     }
 
     worker.status = "Rejected";
