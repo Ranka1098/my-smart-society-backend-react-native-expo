@@ -9,11 +9,13 @@ const rejectFamilyMemberRequest = async (req, res) => {
     const member = await Member.findOneAndUpdate(
       { _id: id, buildingCode, role: "family", approvalStatus: "Pending" },
       { approvalStatus: "Rejected" },
-      { new: true }
+      { returnDocument: "after" },
     );
 
     if (!member)
-      return res.status(404).json({ success: false, message: "Family member not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Family member not found" });
 
     res.status(200).json({ success: true, message: "Family member rejected" }); // ✅ CHANGE
 

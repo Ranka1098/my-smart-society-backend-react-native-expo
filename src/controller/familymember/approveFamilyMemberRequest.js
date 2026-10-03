@@ -9,7 +9,7 @@ const approveFamilyMemberRequest = async (req, res) => {
     const member = await Member.findOneAndUpdate(
       { _id: id, buildingCode, role: "family", approvalStatus: "Pending" },
       { approvalStatus: "Approved" },
-      { new: true }
+      { returnDocument: "after" },
     );
 
     if (!member)

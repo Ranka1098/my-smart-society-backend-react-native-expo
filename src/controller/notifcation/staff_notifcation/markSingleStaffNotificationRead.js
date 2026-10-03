@@ -14,7 +14,7 @@ const markSingleStaffNotificationRead = async (req, res) => {
       {
         $push: { readBy: { userId: staffId, userModel: "STAFF" } },
       },
-      { new: true }
+      { returnDocument: "after" },
     );
 
     if (!notif) {

@@ -14,7 +14,7 @@ const markSingleSuperAdminNotificationRead = async (req, res) => {
       {
         $push: { readBy: { userId: superAdminId, userModel: "SUPERADMIN" } },
       },
-      { new: true }
+      { returnDocument: "after" },
     );
 
     if (!notif) {

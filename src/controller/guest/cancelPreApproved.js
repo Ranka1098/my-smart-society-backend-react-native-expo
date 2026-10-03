@@ -6,7 +6,7 @@ const cancelPreApproved = async (req, res) => {
     const visitor = await Visitor.findByIdAndUpdate(
       id,
       { status: "Rejected", rejectedAt: new Date() },
-      { new: true }
+      { returnDocument: "after" },
     );
     if (!visitor)
       return res.status(404).json({ success: false, message: "Nahi mila" });

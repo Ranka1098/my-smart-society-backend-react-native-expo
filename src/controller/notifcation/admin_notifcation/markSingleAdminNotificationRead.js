@@ -14,7 +14,7 @@ const markSingleAdminNotificationRead = async (req, res) => {
       {
         $push: { readBy: { userId: adminId, userModel: "ADMIN" } },
       },
-      { new: true }
+      { returnDocument: "after" },
     );
 
     if (!notif) {

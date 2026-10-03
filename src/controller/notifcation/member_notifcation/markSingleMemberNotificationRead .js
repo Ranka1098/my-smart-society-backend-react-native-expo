@@ -15,11 +15,13 @@ const markSingleMemberNotificationRead = async (req, res) => {
           readBy: { userId: memberId, userModel: "MEMBER" },
         },
       },
-      { new: true }
+      { returnDocument: "after" },
     );
 
     if (!notif) {
-      return res.status(404).json({ success: false, message: "Not found or already read" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Not found or already read" });
     }
 
     return res.status(200).json({ success: true });

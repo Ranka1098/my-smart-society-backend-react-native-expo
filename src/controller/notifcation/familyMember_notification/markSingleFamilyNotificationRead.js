@@ -21,11 +21,13 @@ const markSingleFamilyNotificationRead = async (req, res) => {
       {
         $push: { readBy: { userId: familyMember._id, userModel: "MEMBER" } },
       },
-      { new: true }
+      { returnDocument: "after" },
     );
 
     if (!notif) {
-      return res.status(404).json({ success: false, message: "Not found or already read" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Not found or already read" });
     }
 
     return res.status(200).json({ success: true });

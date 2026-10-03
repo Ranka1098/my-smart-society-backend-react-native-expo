@@ -18,7 +18,7 @@ const logExit = async (req, res) => {
     const visitor = await Visitor.findByIdAndUpdate(
       req.params.id,
       { status: "Exited", exitTime: new Date() },
-      { new: true },
+      { returnDocument: "after" },
     );
     if (!visitor) {
       return res
@@ -123,44 +123,44 @@ const logExit = async (req, res) => {
       });
     }
 
-  // ══════════════════════════════════════════════
-// GUEST EXIT — ManualCall verified YA Force Entry
-// (dono me respondedBy set nahi hota, notifiedMembers se fallback)
-// ══════════════════════════════════════════════
-else if (
-  visitor.verificationMethod === "ManualCall" ||
-  visitor.verificationMethod === "ForcedEntry" ||
-  visitor.status === "ForcedEntry"   // agar verificationMethod alag rakha hai, status se bhi catch kar
-) {
-  const members = await memberModel
-    .find({ _id: { $in: visitor.notifiedMembers || [] } })
-    .select("_id fcmToken");
+    // ══════════════════════════════════════════════
+    // GUEST EXIT — ManualCall verified YA Force Entry
+    // (dono me respondedBy set nahi hota, notifiedMembers se fallback)
+    // ══════════════════════════════════════════════
+    else if (
+      visitor.verificationMethod === "ManualCall" ||
+      visitor.verificationMethod === "ForcedEntry" ||
+      visitor.status === "ForcedEntry" // agar verificationMethod alag rakha hai, status se bhi catch kar
+    ) {
+      const members = await memberModel
+        .find({ _id: { $in: visitor.notifiedMembers || [] } })
+        .select("_id fcmToken");
 
-  for (const m of members) {
-    io.to(`member_${m._id}`).emit("visitor_status_update", {
-      visitorId: visitor._id,
-      status: "Exited",
-    });
+      for (const m of members) {
+        io.to(`member_${m._id}`).emit("visitor_status_update", {
+          visitorId: visitor._id,
+          status: "Exited",
+        });
 
-    await notifyStaffToMember({
-      io,
-      buildingCode: visitor.buildingCode,
-      memberId: m._id,
-      memberFcmToken: m.fcmToken,
-      type: "GUEST_EXIT",
-      title: "Guest Exited 🚪",
-      message: `${visitor.name} ne abhi society se exit kiya hai`,
-      referenceId: visitor._id,
-      data: {
-        visitorId: visitor._id,
-        status: "Exited",
-        exitTime: visitor.exitTime,
-        name: visitor.name,
-        purpose: visitor.purpose,
-      },
-    });
-  }
-}
+        await notifyStaffToMember({
+          io,
+          buildingCode: visitor.buildingCode,
+          memberId: m._id,
+          memberFcmToken: m.fcmToken,
+          type: "GUEST_EXIT",
+          title: "Guest Exited 🚪",
+          message: `${visitor.name} ne abhi society se exit kiya hai`,
+          referenceId: visitor._id,
+          data: {
+            visitorId: visitor._id,
+            status: "Exited",
+            exitTime: visitor.exitTime,
+            name: visitor.name,
+            purpose: visitor.purpose,
+          },
+        });
+      }
+    }
 
     return res
       .status(200)
