@@ -191,6 +191,12 @@ const unifiedLogin = async (req, res) => {
         unitNo: member.unitNo,
         role: member.role,
         approvalStatus: member.approvalStatus,
+        shopName: member.shopName,
+        ownerName: member.ownerName,
+        ownerPhone: member.ownerPhone,
+        renterName: member.renterName,
+        renterPhone: member.renterPhone,
+        relation: member.relation,
       };
     } else {
       payload = {
