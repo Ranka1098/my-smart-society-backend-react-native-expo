@@ -1,12 +1,11 @@
 import { getMessaging } from "firebase-admin/messaging";
 
 const CHANNELS = {
-  doorbell: { channelId: "doorbell_v2", sound: "doorbell" },
-  default: { channelId: "default", sound: "default" },
+  doorbell: { channelId: "visitor_alert", sound: "doorbell" },
+  default: { channelId: "default_sound", sound: "default" },
 };
 
-// visitor wali notif types jo doorbell bajayengi
-const DOORBELL_TYPES = ["VISITOR_REQUEST", "DELIVERY_ARRIVED"];
+const DOORBELL_TYPES = ["VISITOR_APPROVAL"];
 
 export const sendFCM = async (tokens, title, body, data = {}) => {
   if (!tokens?.length) return;
