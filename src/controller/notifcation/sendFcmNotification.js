@@ -1,9 +1,16 @@
 import { getMessaging } from "firebase-admin/messaging";
 
+const CHANNELS = {
+  doorbell: { channelId: "doorbell_v2", sound: "doorbell" },
+  default: { channelId: "default", sound: "default" },
+};
+
+// visitor wali notif types jo doorbell bajayengi
+const DOORBELL_TYPES = ["VISITOR_REQUEST", "DELIVERY_ARRIVED"];
+
 export const sendFCM = async (tokens, title, body, data = {}) => {
   if (!tokens?.length) return;
 
-  // ✅ dedup — stale tokens hatao
   const uniqueTokens = [...new Set(tokens.filter(Boolean))];
   if (!uniqueTokens.length) return;
 
@@ -11,27 +18,28 @@ export const sendFCM = async (tokens, title, body, data = {}) => {
     Object.entries(data).map(([k, v]) => [k, String(v)]),
   );
 
+  const ch = DOORBELL_TYPES.includes(stringData.type)
+    ? CHANNELS.doorbell
+    : CHANNELS.default;
+
   try {
     const startTime = Date.now();
     const result = await getMessaging().sendEachForMulticast({
       tokens: uniqueTokens,
-      // ✅ ADD — notification field (killed state me system tray dikhe)
-      notification: {
-        title,
-        body,
-      },
+      notification: { title, body },
       data: stringData,
       android: {
         priority: "high",
-      },
-      // ✅ ADD — apns-priority header iOS ke liye
-      apns: {
-        headers: {
-          "apns-priority": "10",
+        notification: {
+          channelId: ch.channelId, // ✅ app ke channel ID se same
+          sound: ch.sound, // ✅ res/raw ki file, extension nahi
         },
+      },
+      apns: {
+        headers: { "apns-priority": "10" },
         payload: {
           aps: {
-            sound: "default",
+            sound: ch.sound === "default" ? "default" : "doorbell.wav",
             "content-available": 1,
           },
         },
@@ -43,7 +51,6 @@ export const sendFCM = async (tokens, title, body, data = {}) => {
       `[FCM] Sent: ${result.successCount} success, ${result.failureCount} failed`,
     );
 
-    // ✅ debug — fail reasons log karo
     result.responses.forEach((r, i) => {
       if (!r.success) {
         console.log(
