@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Visitor from "../../model/Visitor.js";
 import memberModel from "../../model/member.js";
 import {
@@ -6,160 +7,167 @@ import {
   notifyStaffToMember,
 } from "../../controller/notifcation/notifyMembers.js";
 
+// Sirf wahi exit ho sakta hai jo abhi andar hai
+const EXITABLE_STATUSES = ["Approved", "ForcedEntry"];
+
+const unitLabel = (v) =>
+  v.flatNo === "Society"
+    ? "Society"
+    : `${v.memberType === "Shop" ? "Shop" : "Flat"} ${v.flatNo}`;
+
 /**
- * Marks a visitor as Exited and notifies the relevant audience:
- *  - PreApprovedWorker  → society admin (society staff) or flat/shop members (flat staff)
- *  - FCM-approved guest → the member who approved (visitor.respondedBy)
- *  - ManualCall-verified guest → all members that were originally notified
- *    (visitor.notifiedMembers), since respondedBy is never set for this method
+ * Exit ke baad sahi audience ko notify karo:
+ *  - PreApprovedWorker         → society admin (Society staff) ya us flat/shop ke members
+ *  - respondedBy set (FCM/OTP) → wahi member
+ *  - ManualCall / ForcedEntry  → notifiedMembers (respondedBy set nahi hota)
  */
-const logExit = async (req, res) => {
-  try {
-    const visitor = await Visitor.findByIdAndUpdate(
-      req.params.id,
-      { status: "Exited", exitTime: new Date() },
-      { returnDocument: "after" },
-    );
-    if (!visitor) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Visitor not found" });
+const notifyExit = async (io, visitor) => {
+  // ── WORKER ──
+  if (visitor.verificationMethod === "PreApprovedWorker") {
+    const notifData = {
+      visitorId: visitor._id.toString(),
+      name: visitor.name,
+      category: visitor.purpose,
+      flatNo: visitor.flatNo,
+      memberType: visitor.memberType,
+      exitTime: visitor.exitTime,
+      workerType: visitor.flatNo === "Society" ? "SocietyStaff" : "FlatStaff",
+    };
+    const common = {
+      io,
+      buildingCode: visitor.buildingCode,
+      type: "WORKER_EXIT",
+      title: "Worker Exit",
+      message: `${visitor.name} (${visitor.purpose}) ne ${unitLabel(visitor)} se abhi exit kiya hai.`,
+      referenceId: visitor._id,
+      referenceModel: "Visitor",
+      data: notifData,
+    };
+
+    if (visitor.flatNo === "Society") {
+      await notifyWorkerToAdmin(common);
+      return;
     }
 
-    const io = req.app.get("io");
+    const members = await memberModel
+      .find({
+        buildingCode: visitor.buildingCode,
+        unitNo: visitor.flatNo,
+        ...(visitor.memberType ? { memberType: visitor.memberType } : {}),
+      })
+      .select("_id fcmToken");
 
-    // Let the guard's own dashboard drop this entry from its live list
-    io.to(`guard_${visitor.buildingCode}`).emit("visitor_exited", {
+    if (members.length) {
+      await notifyWorkerToMembers({ ...common, members });
+    }
+    return;
+  }
+
+  const guestData = {
+    visitorId: visitor._id,
+    status: "Exited",
+    exitTime: visitor.exitTime,
+    name: visitor.name,
+    purpose: visitor.purpose,
+  };
+  const guestNotif = {
+    io,
+    buildingCode: visitor.buildingCode,
+    type: "GUEST_EXIT",
+    title: "Guest Exited 🚪",
+    message: `${visitor.name} ne abhi society se exit kiya hai`,
+    referenceId: visitor._id,
+    data: guestData,
+  };
+
+  // ── GUEST: member ne approve kiya (respondedBy set) ──
+  if (visitor.respondedBy) {
+    const member = await memberModel
+      .findById(visitor.respondedBy)
+      .select("fcmToken");
+
+    io.to(`member_${visitor.respondedBy}`).emit("visitor_status_update", {
       visitorId: visitor._id,
+      status: "Exited",
     });
 
-    // ══════════════════════════════════════════════
-    // WORKER EXIT
-    // ══════════════════════════════════════════════
-    if (visitor.verificationMethod === "PreApprovedWorker") {
-      const notifData = {
-        visitorId: visitor._id.toString(),
-        name: visitor.name,
-        category: visitor.purpose,
-        flatNo: visitor.flatNo,
-        memberType: visitor.memberType,
-        exitTime: visitor.exitTime,
-        workerType: visitor.flatNo === "Society" ? "SocietyStaff" : "FlatStaff",
-      };
-      const notifTitle = "Worker Exit";
-      const notifMessage = `${visitor.name} (${visitor.purpose}) ne ${
-        visitor.flatNo === "Society"
-          ? "Society"
-          : `${visitor.memberType === "Shop" ? "Shop" : "Flat"} ${visitor.flatNo}`
-      } ne abhi exit kiya hai.`;
+    await notifyStaffToMember({
+      ...guestNotif,
+      memberId: visitor.respondedBy,
+      memberFcmToken: member?.fcmToken,
+    });
+    return;
+  }
 
-      if (visitor.flatNo === "Society") {
-        // Society-level staff → notify admin only
-        await notifyWorkerToAdmin({
-          io,
-          buildingCode: visitor.buildingCode,
-          type: "WORKER_EXIT",
-          title: notifTitle,
-          message: notifMessage,
-          referenceId: visitor._id,
-          referenceModel: "Visitor",
-          data: notifData,
-        });
-      } else {
-        // Flat/shop-level staff → notify that unit's members
-        const members = await memberModel
-          .find({
-            buildingCode: visitor.buildingCode,
-            unitNo: visitor.flatNo,
-            ...(visitor.memberType ? { memberType: visitor.memberType } : {}),
-          })
-          .select("_id fcmToken");
+  // ── GUEST: ManualCall / ForcedEntry (respondedBy set nahi hota) ──
+  if (
+    visitor.verificationMethod === "ManualCall" ||
+    visitor.verificationMethod === "ForcedEntry"
+  ) {
+    const members = await memberModel
+      .find({ _id: { $in: visitor.notifiedMembers || [] } })
+      .select("_id fcmToken");
 
-        if (members.length) {
-          await notifyWorkerToMembers({
-            io,
-            buildingCode: visitor.buildingCode,
-            type: "WORKER_EXIT",
-            title: notifTitle,
-            message: notifMessage,
-            referenceId: visitor._id,
-            referenceModel: "Visitor",
-            data: notifData,
-            members,
-          });
-        }
-      }
-    }
-
-    // ══════════════════════════════════════════════
-    // GUEST EXIT — FCM approved (member approved in-app, respondedBy set)
-    // ══════════════════════════════════════════════
-    else if (visitor.respondedBy) {
-      const member = await memberModel
-        .findById(visitor.respondedBy)
-        .select("fcmToken");
-
-      io.to(`member_${visitor.respondedBy}`).emit("visitor_status_update", {
+    for (const m of members) {
+      io.to(`member_${m._id}`).emit("visitor_status_update", {
         visitorId: visitor._id,
         status: "Exited",
       });
 
       await notifyStaffToMember({
-        io,
-        buildingCode: visitor.buildingCode,
-        memberId: visitor.respondedBy,
-        memberFcmToken: member?.fcmToken,
-        type: "GUEST_EXIT",
-        title: "Guest Exited 🚪",
-        message: `${visitor.name} ne abhi society se exit kiya hai`,
-        referenceId: visitor._id,
-        data: {
-          visitorId: visitor._id,
-          status: "Exited",
-          exitTime: visitor.exitTime,
-          name: visitor.name,
-          purpose: visitor.purpose,
-        },
+        ...guestNotif,
+        memberId: m._id,
+        memberFcmToken: m.fcmToken,
+      });
+    }
+  }
+};
+
+const logExit = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const buildingCode = req.staff?.buildingCode ?? req.buildingCode;
+
+    if (!buildingCode) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    if (!mongoose.isValidObjectId(id)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid visitor id" });
+    }
+
+    // ATOMIC: sirf apni building ka, abhi andar wala visitor. Dobara exit nahi hoga.
+    const visitor = await Visitor.findOneAndUpdate(
+      {
+        _id: id,
+        buildingCode,
+        status: { $in: EXITABLE_STATUSES },
+        exitTime: null,
+      },
+      { $set: { status: "Exited", exitTime: new Date() } },
+      { new: true },
+    );
+
+    if (!visitor) {
+      return res.status(404).json({
+        success: false,
+        message: "Visitor nahi mila ya pehle hi exit ho chuka hai",
       });
     }
 
-    // ══════════════════════════════════════════════
-    // GUEST EXIT — ManualCall verified YA Force Entry
-    // (dono me respondedBy set nahi hota, notifiedMembers se fallback)
-    // ══════════════════════════════════════════════
-    else if (
-      visitor.verificationMethod === "ManualCall" ||
-      visitor.verificationMethod === "ForcedEntry" ||
-      visitor.status === "ForcedEntry" // agar verificationMethod alag rakha hai, status se bhi catch kar
-    ) {
-      const members = await memberModel
-        .find({ _id: { $in: visitor.notifiedMembers || [] } })
-        .select("_id fcmToken");
+    const io = req.app.get("io");
 
-      for (const m of members) {
-        io.to(`member_${m._id}`).emit("visitor_status_update", {
-          visitorId: visitor._id,
-          status: "Exited",
-        });
+    // Guard dashboard live count update
+    io?.to(`guard_${visitor.buildingCode}`).emit("visitor_exited", {
+      visitorId: visitor._id,
+    });
 
-        await notifyStaffToMember({
-          io,
-          buildingCode: visitor.buildingCode,
-          memberId: m._id,
-          memberFcmToken: m.fcmToken,
-          type: "GUEST_EXIT",
-          title: "Guest Exited 🚪",
-          message: `${visitor.name} ne abhi society se exit kiya hai`,
-          referenceId: visitor._id,
-          data: {
-            visitorId: visitor._id,
-            status: "Exited",
-            exitTime: visitor.exitTime,
-            name: visitor.name,
-            purpose: visitor.purpose,
-          },
-        });
-      }
+    // Exit save ho chuka hai. Notification fail ho to bhi success return karo.
+    try {
+      if (io) await notifyExit(io, visitor);
+    } catch (notifyError) {
+      console.error("logExit notify error:", notifyError);
     }
 
     return res

@@ -13,14 +13,13 @@ const getVisitorLog = async (req, res) => {
     if (flatNo) filter.flatNo = flatNo;
     if (memberType) filter.memberType = memberType; // ✅ NAYA
     if (date) {
-      // ✅ FIX — IST calendar-day boundary explicit banao, UTC drift se bacho
       const start = new Date(`${date}T00:00:00.000+05:30`);
       const end = new Date(`${date}T23:59:59.999+05:30`);
-      filter.entryTime = { $gte: start, $lte: end };
+      filter.createdAt = { $gte: start, $lte: end }; // entryTime -> createdAt
     }
 
     const visitors = await Visitor.find(filter)
-      .sort({ entryTime: -1 })
+      .sort({ createdAt: -1 }) // entryTime -> createdAt
       .limit(100)
       .populate("notifiedMembers", "fullName primaryPhone")
       .populate("respondedBy", "fullName")

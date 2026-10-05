@@ -139,3 +139,132 @@ checkBuildingSubscription.js → routes ke beech me lockLevel check
 Test script (route nahi, node se run hota):
 
 testCashfreeWebhook.js
+
+///////////////////////////////
+import Visitor from "../../model/Visitor.js";
+import Notice from "../../model/notice.js";
+
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const LIST_LIMIT = 5;
+
+// Status jo "andar gaya" count hota hai.
+// Forced entry bhi status "Approved" hai (verificationMethod = "ForcedEntry").
+const ENTERED_STATUS = "Approved";
+
+// ── DATE UTILS (IST) ──
+const todayIST = () =>
+  new Date(Date.now() + IST_OFFSET_MS).toISOString().split("T")[0];
+
+// "YYYY-MM-DD" format + real calendar date (2026-02-31 reject)
+const isValidDateStr = (s) => {
+  if (typeof s !== "string" || !DATE_RE.test(s)) return false;
+  const d = new Date(`${s}T00:00:00.000+05:30`);
+  if (Number.isNaN(d.getTime())) return false;
+  return new Date(d.getTime() + IST_OFFSET_MS).toISOString().startsWith(s);
+};
+
+const getDayRange = (dateStr) => ({
+  $gte: new Date(`${dateStr}T00:00:00.000+05:30`),
+  $lte: new Date(`${dateStr}T23:59:59.999+05:30`),
+});
+
+// ── CONTROLLER ──
+const getGuardDashboard = async (req, res) => {
+  try {
+    const { buildingCode, date } = req.query;
+
+    // string check: ?buildingCode[$ne]=x jaise NoSQL injection se bachav
+    if (typeof buildingCode !== "string" || !buildingCode.trim()) {
+      return res
+        .status(400)
+        .json({ success: false, message: "buildingCode required" });
+    }
+
+    if (date !== undefined && date !== "" && !isValidDateStr(date)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "date must be YYYY-MM-DD" });
+    }
+
+    const code = buildingCode.trim();
+    const today = todayIST();
+    const dateStr = date || today;
+    const isToday = dateStr === today;
+    const dayRange = getDayRange(dateStr);
+
+    // Pre-approved = member ne respond kar diya, guard ne abhi entry nahi li
+    const preApprovedFilter = {
+      buildingCode: code,
+      status: "Pending",
+      respondedBy: { $ne: null },
+    };
+
+    const [
+      visitorCount,
+      preApprovedCount,
+      preApprovedList,
+      recentVisitors,
+      currentlyInsideCount,
+      notices,
+    ] = await Promise.all([
+      // History (getVisitorLog) jaisa hi filter: buildingCode + entryTime
+      Visitor.countDocuments({ buildingCode: code, createdAt: dayRange }),
+
+      // Real count (list sirf 5 hoti hai, count nahi)
+      Visitor.countDocuments(preApprovedFilter),
+
+      Visitor.find({
+        buildingCode: code,
+        status: ENTERED_STATUS,
+        createdAt: dayRange,
+      })
+        .sort({ createdAt: -1 })
+        .limit(LIST_LIMIT)
+        .lean(),
+
+      Visitor.find({
+        buildingCode: code,
+        status: ENTERED_STATUS,
+        entryTime: dayRange,
+      })
+        .sort({ entryTime: -1 })
+        .limit(LIST_LIMIT)
+        .lean(),
+
+      // "Abhi andar": date range nahi. Raat ko andar aaya aur subah tak andar hai
+      // to bhi count hona chahiye. Purani date par ye meaningless hai, isliye 0.
+      isToday
+        ? Visitor.countDocuments({
+            buildingCode: code,
+            status: ENTERED_STATUS,
+            exitTime: null, // missing field bhi match hota hai
+          })
+        : 0,
+
+      Notice.find({ buildingCode: code })
+        .sort({ createdAt: -1 })
+        .limit(LIST_LIMIT)
+        .lean(),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        stats: {
+          visitorCount,
+          currentlyInsideCount,
+          preApprovedCount,
+        },
+        preApproved: preApprovedList,
+        recentVisitors,
+        notices,
+      },
+    });
+  } catch (error) {
+    console.error("getGuardDashboard error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export default getGuardDashboard;

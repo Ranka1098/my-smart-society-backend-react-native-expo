@@ -130,7 +130,7 @@ io.on("connection", (socket) => {
     console.log(`Socket ${socket.id} disconnected`);
   });
 });
-
+app.get("/serverTime", (req, res) => res.json({ serverTime: Date.now() }));
 app.use("/", adminRouter);
 app.use("/", authRouter);
 app.use("/", memberRouter);

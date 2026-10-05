@@ -3,28 +3,63 @@ import Member from "../../model/member.js";
 import { sendFCM } from "../notifcation/sendFcmNotification.js";
 import sharp from "sharp";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
-import NotificationModel from "../../model/notification.js"; // path check karo
+import NotificationModel from "../../model/notification.js";
+
 const NOTIFICATION_TTL = 60;
+const MEMBER_TYPES = ["Flat", "Shop"];
+
+const isStr = (v) => typeof v === "string" && v.trim().length > 0;
 
 const createVisitorPendingRequest = async (req, res) => {
   try {
-    const { buildingCode, name, mobile, purpose, flatNo, memberType } =
-      req.body; // ✅ memberType destructure
     const guardId = req.staff._id;
 
-    if (!buildingCode || !name || !purpose || !flatNo) {
+    // Building token se lo. Body se lene par guard kisi bhi building ke liye request bana sakta hai.
+    // NOTE: req.staff.buildingCode set na ho to body fallback chalega.
+    // Confirm hone ke baad fallback hata do.
+    const buildingCode = req.staff?.buildingCode || req.body.buildingCode;
+    const { name, mobile, purpose, flatNo, memberType } = req.body;
+
+    // ── VALIDATION (string check = NoSQL injection se bachav bhi) ──
+    if (![buildingCode, name, purpose, flatNo].every(isStr)) {
       return res
         .status(400)
         .json({ success: false, message: "Required fields missing" });
     }
+    if (memberType !== undefined && !MEMBER_TYPES.includes(memberType)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "memberType must be Flat or Shop" });
+    }
+    if (req.file && !req.file.mimetype.startsWith("image")) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Only image files allowed" });
+    }
 
+    const code = buildingCode.trim();
+    const unit = flatNo.trim();
+    const visitorName = name.trim();
+    const type = memberType || "Flat";
+
+    // ── MEMBERS PEHLE (photo upload se pehle) ──
+    // Koi member nahi to request ka matlab nahi. Bhoot Pending entries "Visitors" count badhati thi.
+    const members = await Member.find({
+      buildingCode: code,
+      unitNo: unit,
+      memberType: type,
+    }).select("_id fcmToken");
+
+    if (members.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `${type === "Shop" ? "Shop" : "Flat"} ${unit} me koi member nahi mila`,
+      });
+    }
+
+    // ── PHOTO ──
     let photoUrl = null;
     if (req.file) {
-      if (!req.file.mimetype.startsWith("image")) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Only image files allowed" });
-      }
       const compressed = await sharp(req.file.buffer)
         .resize({ width: 1200, withoutEnlargement: true })
         .jpeg({ quality: 70 })
@@ -33,24 +68,18 @@ const createVisitorPendingRequest = async (req, res) => {
       photoUrl = uploaded.secure_url;
     }
 
-    // Fetch ALL members of flat (FCM token optional — socket needs _id)
-    const members = await Member.find({
-      buildingCode,
-      unitNo: flatNo,
-      ...(memberType ? { memberType } : {}), // Flat bhejo to sirf Flat, Shop bhejo to sirf Shop
-    }).select("_id fcmToken");
-
+    // ── CREATE ──
     const now = new Date();
     const expiresAt = new Date(now.getTime() + NOTIFICATION_TTL * 1000);
 
     const visitor = await Visitor.create({
-      buildingCode,
-      name,
-      mobile: mobile || null,
+      buildingCode: code,
+      name: visitorName,
+      mobile: isStr(mobile) ? mobile.trim() : null,
       purpose,
       photoUrl,
-      flatNo,
-      memberType: memberType || "Flat",
+      flatNo: unit,
+      memberType: type,
       guardId,
       notifiedMembers: members.map((m) => m._id),
       status: "Pending",
@@ -59,72 +88,88 @@ const createVisitorPendingRequest = async (req, res) => {
       entryTime: now,
     });
 
-    await NotificationModel.insertMany(
-      members.map((m) => ({
-        buildingCode,
-        type: "VISITOR_ARRIVED",
-        audience: "SPECIFIC_MEMBER",
-        receiverId: m._id,
-        receiverModel: "MEMBER",
-        title: "Visitor at Gate",
-        message: `${name} aaya hai, approve/deny karo.`,
-        referenceId: visitor._id,
-        referenceModel: "Visitor",
-        data: { flatNo, purpose, photoUrl: photoUrl || "" },
-      }))
-    );
-
+    // ══════════════════════════════════════════════
+    // NOTIFICATIONS: best-effort, har channel alag.
+    // Visitor save ho chuka hai. Yahan fail hone par 500 gaya to guard retry karega
+    // aur duplicate entry banegi (Visitors count bigadta hai).
+    // ══════════════════════════════════════════════
     const io = req.app.get("io");
 
-    // ── FCM: sirf jinke paas token hai ──
-    const membersWithToken = members.filter((m) => m.fcmToken);
-    if (membersWithToken.length > 0) {
-      const tokens = membersWithToken.map((m) => m.fcmToken);
-      await sendFCM(
-        tokens,
-        "Visitor at Gate 🔔",
-        `${name} aaya hai. Approve ya Deny karo.`,
-        {
-          type: "VISITOR_APPROVAL",
-          visitorId: visitor._id.toString(),
-          flatNo,
-          memberType: memberType || "Flat", // ✅ FIX
-          visitorName: name,
-          purpose,
-          photoUrl: photoUrl || "",
-          expiresAt: expiresAt.toISOString(),
-           serverTime: String(Date.now()), // ✅ ADD
-        }
+    // DB notification
+    try {
+      await NotificationModel.insertMany(
+        members.map((m) => ({
+          buildingCode: code,
+          type: "VISITOR_ARRIVED",
+          audience: "SPECIFIC_MEMBER",
+          receiverId: m._id,
+          receiverModel: "MEMBER",
+          title: "Visitor at Gate",
+          message: `${visitorName} aaya hai, approve/deny karo.`,
+          referenceId: visitor._id,
+          referenceModel: "Visitor",
+          data: { flatNo: unit, purpose, photoUrl: photoUrl || "" },
+        })),
       );
+    } catch (e) {
+      console.error("createVisitorPendingRequest db-notification error:", e);
     }
 
-    // ── SOCKET: saare flat members ko visitor_request emit karo ──
-    const visitorPayload = {
-      visitorId: visitor._id.toString(),
-      name,
-      purpose,
-      photoUrl: photoUrl || null,
-      flatNo,
-      memberType: memberType || "Flat",
-      buildingCode,
-      ttlSeconds: NOTIFICATION_TTL,
-      expiresAt: expiresAt.toISOString(),
-    };
+    // FCM: sirf jinke paas token hai
+    try {
+      const tokens = members.map((m) => m.fcmToken).filter(Boolean);
+      if (tokens.length > 0) {
+        await sendFCM(
+          tokens,
+          "Visitor at Gate 🔔",
+          `${visitorName} aaya hai. Approve ya Deny karo.`,
+          {
+            type: "VISITOR_APPROVAL",
+            visitorId: visitor._id.toString(),
+            flatNo: unit,
+            memberType: type,
+            visitorName,
+            purpose,
+            photoUrl: photoUrl || "",
+            expiresAt: expiresAt.toISOString(),
+            serverTime: String(Date.now()),
+          },
+        );
+      }
+    } catch (e) {
+      console.error("createVisitorPendingRequest fcm error:", e);
+    }
 
-members.forEach((m) => {
-  io.to(`member_${m._id}`).emit("visitor_request", {
-    ...visitorPayload,
-    serverTime: Date.now(), // ✅ NAYA
-  });
-});
+    // Socket: flat members + guard
+    try {
+      const visitorPayload = {
+        visitorId: visitor._id.toString(),
+        name: visitorName,
+        purpose,
+        photoUrl,
+        flatNo: unit,
+        memberType: type,
+        buildingCode: code,
+        ttlSeconds: NOTIFICATION_TTL,
+        expiresAt: expiresAt.toISOString(),
+      };
 
-    // ── Guard ko pending confirm ──
-    io.to(`guard_${buildingCode}`).emit("visitor_pending", {
-      visitorId: visitor._id,
-      name,
-      flatNo,
-      expiresAt,
-    });
+      members.forEach((m) => {
+        io?.to(`member_${m._id}`).emit("visitor_request", {
+          ...visitorPayload,
+          serverTime: Date.now(),
+        });
+      });
+
+      io?.to(`guard_${code}`).emit("visitor_pending", {
+        visitorId: visitor._id,
+        name: visitorName,
+        flatNo: unit,
+        expiresAt,
+      });
+    } catch (e) {
+      console.error("createVisitorPendingRequest socket error:", e);
+    }
 
     return res.status(201).json({
       success: true,
@@ -134,10 +179,13 @@ members.forEach((m) => {
         ttlSeconds: NOTIFICATION_TTL,
         membersNotified: members.length,
         photoUrl,
-         serverTime: Date.now(), // ✅ NAYA
+        serverTime: Date.now(),
       },
     });
   } catch (error) {
+    if (error?.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     console.error("createVisitorPendingRequest error:", error);
     return res.status(500).json({ success: false, message: "Server error" });
   }

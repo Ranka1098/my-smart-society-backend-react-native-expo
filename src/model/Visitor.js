@@ -73,7 +73,7 @@ const visitorSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-visitorSchema.index({ buildingCode: 1, entryTime: -1 });
+visitorSchema.index({ buildingCode: 1, createdAt: -1 });
 visitorSchema.index({ buildingCode: 1, flatNo: 1 });
 visitorSchema.index({ buildingCode: 1, status: 1 });
 
