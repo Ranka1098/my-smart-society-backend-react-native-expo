@@ -8,7 +8,7 @@ const getGuardPreApproved = async (req, res) => {
       status: "Pending",
       respondedBy: { $ne: null }, // sirf wahi jo member ne khud pre-approve kiya (guard-initiated se alag)
     })
-      .populate("respondedBy", "name") // "approved by which member"
+      .populate("respondedBy", "fullName") // "approved by which member"
       .sort({ createdAt: -1 });
     res.json({ success: true, data: list });
   } catch (e) {

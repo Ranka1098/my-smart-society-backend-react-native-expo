@@ -67,7 +67,7 @@ const visitorSchema = new mongoose.Schema(
     exitTime: { type: Date },
     exitPhotoUrl: { type: String },
     isEmergencyExit: { type: Boolean, default: false },
-    otp: { type: String },
+    otp: { type: String, select: false },
     otpVerifiedAt: { type: Date },
   },
   { timestamps: true }

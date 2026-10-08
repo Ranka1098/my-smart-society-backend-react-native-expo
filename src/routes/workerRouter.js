@@ -21,74 +21,79 @@ workerRouter.post(
   "/createWorkerPendingRequest",
   staffAuth,
   checkBuildingSubscription,
-  upload.single("photo"),
-  createWorkerPendingRequest
+  upload.fields([
+    { name: "photo", maxCount: 1 },
+    { name: "idPhoto", maxCount: 1 },
+  ]),
+  createWorkerPendingRequest,
 );
+
+
 workerRouter.get(
   "/admin/getAdminWorkerRequests",
   adminAuth,
   checkBuildingSubscription,
-  getAdminWorkerRequests
+  getAdminWorkerRequests,
 );
 workerRouter.get(
   "/member/getAdminWorkerRequests",
   memberAuth,
   checkBuildingSubscription,
-  getAdminWorkerRequests
+  getAdminWorkerRequests,
 );
 workerRouter.get(
   "/getMemberWorkerRequests",
   memberAuth,
   checkBuildingSubscription,
-  getMemberWorkerRequests
+  getMemberWorkerRequests,
 );
 workerRouter.post(
   "/approveWorkerByAdmin/:workerId",
   adminAuth,
   checkBuildingSubscription,
-  approveWorkerByAdmin
+  approveWorkerByAdmin,
 );
 workerRouter.post(
   "/rejectWorkerByAdmin/:workerId",
   adminAuth,
   checkBuildingSubscription,
-  rejectWorkerByAdmin
+  rejectWorkerByAdmin,
 );
 workerRouter.post(
   "/approveWorkerByMember/:workerId",
   memberAuth,
   checkBuildingSubscription,
-  approveWorkerByMember
+  approveWorkerByMember,
 );
 workerRouter.post(
   "/rejectWorkerByMember/:workerId",
   memberAuth,
   checkBuildingSubscription,
-  rejectWorkerByMember
+  rejectWorkerByMember,
 );
 workerRouter.get(
   "/searchApprovedWorkers",
   staffAuth,
   checkBuildingSubscription,
-  searchApprovedWorkers
+  searchApprovedWorkers,
 );
 workerRouter.post(
   "/quickWorkerEntry",
   staffAuth,
   checkBuildingSubscription,
-  quickWorkerEntry
+  quickWorkerEntry,
 );
 workerRouter.get(
   "/admin/getApprovedAdminWorkers",
   adminAuth,
   checkBuildingSubscription,
-  getApprovedAdminWorkers
+  getApprovedAdminWorkers,
 );
 workerRouter.get(
   "/member/getApprovedAdminWorkers",
   memberAuth,
   checkBuildingSubscription,
-  getApprovedAdminWorkers
+  getApprovedAdminWorkers,
 );
 
 export default workerRouter;

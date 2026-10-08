@@ -1,8 +1,10 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
+import sharp from "sharp";
 import Visitor from "../../model/Visitor.js";
 import Staff from "../../model/staff.js";
 import Member from "../../model/member.js";
+import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
 import { notifyStaffToMember } from "../notifcation/notifyMembers.js";
 
 // ══════════════════════════════════════════════════════════
@@ -11,6 +13,9 @@ import { notifyStaffToMember } from "../notifcation/notifyMembers.js";
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const OTP_RE = /^\d{4}$/;
+const MAX_OTP_ATTEMPTS = 5;
+const VEHICLE_TYPES = ["None", "2W", "4W"];
+const VEHICLE_RE = /^(\d{4}|[A-Z]{2}\d{2}[A-Z]{2}\d{4})$/; // aakhri 4 digit (1234) ya poora number (MH12RE1234)
 
 const MONTH_INDEX = {
   jan: 0,
@@ -54,18 +59,27 @@ const otpMatches = (stored, given) => {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 };
 
+// otpAttempts purane documents me missing ho sakta hai, $lt us par match nahi karta
+const ATTEMPTS_LEFT = {
+  $or: [
+    { otpAttempts: { $lt: MAX_OTP_ATTEMPTS } },
+    { otpAttempts: { $exists: false } },
+  ],
+};
+
 // ══════════════════════════════════════════════════════════
-// CONTROLLER: pre-approved guest ko OTP se andar aane do
+// CONTROLLER: pre-approved guest ko OTP + photo + gaadi detail se andar aane do
+// Route par multer (upload.single("photo")) lagana zaroori hai.
 // ══════════════════════════════════════════════════════════
 const allowEntry = async (req, res) => {
   try {
     const { id } = req.params;
     const otp = typeof req.body?.otp === "string" ? req.body.otp.trim() : "";
 
-    // Middleware ke hisaab se req.staff ya req.user. Dono try kiye hain.
     const guardId = req.staff?._id ?? req.user?._id;
+    // JWT wali building sabse pehle (staffAuth req.buildingCode set karta hai)
     const buildingCode =
-      req.staff?.buildingCode ?? req.user?.buildingCode ?? req.buildingCode;
+      req.buildingCode ?? req.staff?.buildingCode ?? req.user?.buildingCode;
 
     if (!guardId || !buildingCode) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
@@ -81,27 +95,49 @@ const allowEntry = async (req, res) => {
         .json({ success: false, message: "4 digit OTP daalo" });
     }
 
-    // Sirf apni building ka visitor
-    const visitor = await Visitor.findOne({ _id: id, buildingCode }).lean();
+    // ── GAADI + PHOTO: server par bhi mandatory ──
+    const vehicleType = req.body?.vehicleType;
+    const vehicleNo =
+      typeof req.body?.vehicleNo === "string"
+        ? req.body.vehicleNo.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+        : "";
+
+    if (!VEHICLE_TYPES.includes(vehicleType)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Paidal ya gaadi chuno" });
+    }
+    if (vehicleType !== "None" && !VEHICLE_RE.test(vehicleNo)) {
+      return res.status(400).json({
+        success: false,
+        message: "Poora number (MH12RE1234) ya aakhri 4 digit daalo",
+      });
+    }
+    if (!req.file || !req.file.mimetype?.startsWith("image")) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Visitor ki photo zaroori hai" });
+    }
+
+    // ── CHECKS (galat din ya galat state par OTP attempt kharch nahi hota) ──
+    const visitor = await Visitor.findOne({ _id: id, buildingCode })
+      .select("verificationMethod status visitDate")
+      .lean();
     if (!visitor) {
       return res.status(404).json({ success: false, message: "Nahi mila" });
     }
-
-    // Walk-in Pending entry is route se approve nahi hogi (member ki sahmati ke bina)
     if (visitor.verificationMethod !== "OTP") {
       return res.status(400).json({
         success: false,
         message: "Ye pre-approved entry nahi hai",
       });
     }
-
     if (visitor.status !== "Pending") {
       return res
         .status(409)
         .json({ success: false, message: "Already actioned" });
     }
 
-    // Pre-approval sirf us din ke liye valid hai
     const visitISO = visitDateToISO(visitor.visitDate);
     if (visitISO && visitISO !== todayIST()) {
       return res.status(403).json({
@@ -110,14 +146,58 @@ const allowEntry = async (req, res) => {
       });
     }
 
-    if (!otpMatches(visitor.otp, otp)) {
-      return res.status(403).json({ success: false, message: "OTP galat hai" });
+    // ── OTP ATTEMPT: pehle atomic count, phir compare ──
+    // Parallel guesses bhi MAX_OTP_ATTEMPTS se zyada nahi ho sakte.
+    const attempt = await Visitor.findOneAndUpdate(
+      { _id: id, buildingCode, status: "Pending", ...ATTEMPTS_LEFT },
+      { $inc: { otpAttempts: 1 } },
+      { new: true },
+    )
+      .select("+otp otpAttempts")
+      .lean();
+
+    if (!attempt) {
+      return res.status(429).json({
+        success: false,
+        message:
+          "OTP ke bahut galat attempt ho gaye. Member se naya pre-approval banwao.",
+      });
     }
 
-    // ATOMIC: do guards ek saath allow karein to sirf ek jeetega. OTP consume.
+    if (!otpMatches(attempt.otp, otp)) {
+      const left = Math.max(0, MAX_OTP_ATTEMPTS - (attempt.otpAttempts || 0));
+      return res.status(403).json({
+        success: false,
+        message:
+          left > 0
+            ? `OTP galat hai. ${left} attempt bache hain.`
+            : "OTP galat hai. Attempt khatam, member se naya pre-approval banwao.",
+      });
+    }
+
+    // ── PHOTO UPLOAD (OTP sahi hone ke baad hi) ──
+    let photoUrl;
+    try {
+      const compressed = await sharp(req.file.buffer)
+        .resize({ width: 1200, withoutEnlargement: true })
+        .jpeg({ quality: 70 })
+        .toBuffer();
+      const uploaded = await uploadToCloudinary(compressed, "visitorPhotos");
+      photoUrl = uploaded.secure_url;
+    } catch (uploadError) {
+      console.error("allowEntry photo upload error:", uploadError);
+      // Sahi OTP wala attempt wapas do, guard dobara try kar sake
+      await Visitor.updateOne({ _id: id }, { $inc: { otpAttempts: -1 } });
+      return res.status(502).json({
+        success: false,
+        message: "Photo upload nahi hui. Dobara try karo.",
+      });
+    }
+
+    // ── ATOMIC: do guards ek saath allow karein to sirf ek jeetega. OTP consume. ──
     const now = new Date();
     const updated = await Visitor.findOneAndUpdate(
-      { _id: id, status: "Pending", otp: visitor.otp },
+      { _id: id, buildingCode, status: "Pending", otp: attempt.otp },
       {
         $set: {
           status: "Approved",
@@ -125,6 +205,9 @@ const allowEntry = async (req, res) => {
           approvedAt: now,
           entryTime: now,
           otpVerifiedAt: now,
+          photoUrl,
+          vehicleType,
+          ...(vehicleType !== "None" && { vehicleNo }),
         },
         $unset: { otp: "" },
       },
@@ -148,13 +231,11 @@ const allowEntry = async (req, res) => {
         Member.findById(updated.respondedBy).select("fcmToken").lean(),
       ]);
 
-      // Dashboard: Pre-OK se hatao
       io?.to(guardRoom).emit("visitor_removed_from_preapproved", {
         visitorId: updated._id,
       });
       io?.to(guardRoom).emit("visitor_finalized", { visitorId: updated._id });
 
-      // Member: guest allow ho gaya
       io?.to(`member_${updated.respondedBy}`).emit("visitor_status_update", {
         visitorId: updated._id,
         status: "Approved",
@@ -176,6 +257,8 @@ const allowEntry = async (req, res) => {
           guardName: guard?.name || "Guard",
           name: updated.name,
           purpose: updated.purpose,
+          vehicleType: updated.vehicleType || "None",
+          vehicleNo: updated.vehicleNo || "",
         },
       });
     } catch (notifyError) {

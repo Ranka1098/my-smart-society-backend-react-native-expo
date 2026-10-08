@@ -7,7 +7,9 @@ const getMemberPreApproved = async (req, res) => {
       buildingCode,
       respondedBy: memberId,
       status: { $in: ["Pending", "Approved"] },
-    }).sort({ createdAt: -1 });
+    })
+      .select("+otp")
+      .sort({ createdAt: -1 });
     res.json({ success: true, data: list }); // otp field already included, list member ka apna hai — safe
   } catch (e) {
     res.status(500).json({ success: false, message: "Server error" });

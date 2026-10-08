@@ -13,10 +13,28 @@ import {
 
 const WORKER_TYPES = ["SocietyStaff", "FlatStaff"];
 const MEMBER_TYPES = ["Flat", "Shop"];
+const CATEGORIES = [
+  "Maid",
+  "Cook",
+  "Driver",
+  "Cleaner",
+  "Gardener",
+  "Security",
+];
 const phoneRegex = /^[0-9]{10}$/;
 
 const fail = (res, status, message) =>
   res.status(status).json({ success: false, message });
+
+const compressAndUpload = async (file, { width, quality }, folder) => {
+  const buf = await sharp(file.buffer)
+    .rotate() // EXIF orientation fix
+    .resize({ width, withoutEnlargement: true })
+    .jpeg({ quality })
+    .toBuffer();
+  const { secure_url } = await uploadToCloudinary(buf, folder);
+  return secure_url;
+};
 
 // ── notification (non-fatal: fail hone par request save rehti hai) ──
 const notifyAboutRequest = async ({
@@ -30,6 +48,10 @@ const notifyAboutRequest = async ({
 }) => {
   try {
     const io = req.app.get("io");
+    const byGuard = `guard ${worker.requestedByName || ""}${
+      worker.requestedGate ? ` (Gate ${worker.requestedGate})` : ""
+    }`.trim();
+
     const base = {
       io,
       buildingCode,
@@ -37,11 +59,16 @@ const notifyAboutRequest = async ({
       type: "WORKER_APPROVAL_PENDING",
       referenceId: worker._id,
       referenceModel: "WorkerProfile",
-      data: { workerId: worker._id.toString(), workerType, category },
+      data: {
+        workerId: worker._id.toString(),
+        workerType,
+        category,
+        requestedByName: worker.requestedByName || "",
+        requestedGate: worker.requestedGate || "",
+      },
     };
 
     if (workerType === "FlatStaff") {
-      // sirf verified + approved member ko
       const members = await Member.find({
         buildingCode,
         unitNo: flatNo,
@@ -50,23 +77,25 @@ const notifyAboutRequest = async ({
         ...(memberType ? { memberType } : {}),
       }).select("_id fcmToken");
 
-      await notifyWorkerToMembers({
-        ...base,
-        title: "Naya Worker Approval",
-        message: `${worker.name} (${category}) ne aapke ${
-          memberType === "Shop" ? "shop" : "flat"
-        } ke liye request bheji hai`,
-        members,
-      });
+      if (members.length) {
+        await notifyWorkerToMembers({
+          ...base,
+          title: "Naya Worker Approval",
+          message: `${worker.name} (${category}) ki request ${byGuard} ne aapke ${
+            memberType === "Shop" ? "shop" : "flat"
+          } ke liye bheji hai`,
+          members,
+        });
 
-      members.forEach((m) => {
-        io.to(`member_${m._id}`).emit("worker_pending_request", { worker });
-      });
+        members.forEach((m) => {
+          io.to(`member_${m._id}`).emit("worker_pending_request", { worker });
+        });
+      }
     } else {
       await notifyWorkerToAdmin({
         ...base,
         title: "Naya Society Staff Approval",
-        message: `${worker.name} (${category}) ne society staff request bheji hai`,
+        message: `${worker.name} (${category}) ki society staff request ${byGuard} ne bheji hai`,
       });
     }
   } catch (err) {
@@ -81,6 +110,9 @@ const createWorkerPendingRequest = async (req, res) => {
     if (!buildingCode) {
       return fail(res, 401, "buildingCode missing in token");
     }
+    if (!req.staff?._id) {
+      return fail(res, 401, "Guard identify nahi hua");
+    }
 
     // ── normalize ──
     const name = req.body.name?.trim();
@@ -90,6 +122,12 @@ const createWorkerPendingRequest = async (req, res) => {
     const flatNo = req.body.flatNo?.trim().toUpperCase();
     const memberType = req.body.memberType?.trim();
 
+    // gate: body se, nahi to guard ke profile se
+    const requestedGate =
+      req.body.gate?.toString().trim() ||
+      req.staff.gate?.toString().trim() ||
+      undefined;
+
     // ── validate ──
     if (!name || !mobile || !workerType || !category) {
       return fail(res, 400, "Sab fields required");
@@ -97,14 +135,17 @@ const createWorkerPendingRequest = async (req, res) => {
     if (!WORKER_TYPES.includes(workerType)) {
       return fail(res, 400, "Invalid workerType");
     }
+    if (!CATEGORIES.includes(category)) {
+      return fail(res, 400, "Invalid category");
+    }
     if (name.length < 2 || name.length > 50) {
       return fail(res, 400, "Name must be 2-50 characters");
     }
-    if (category.length > 50) {
-      return fail(res, 400, "Category too long (max 50 characters)");
-    }
     if (!phoneRegex.test(mobile)) {
       return fail(res, 400, "Mobile must be 10 digits");
+    }
+    if (requestedGate && requestedGate.length > 30) {
+      return fail(res, 400, "Gate name too long (max 30 characters)");
     }
 
     const isFlatStaff = workerType === "FlatStaff";
@@ -115,14 +156,20 @@ const createWorkerPendingRequest = async (req, res) => {
       return fail(res, 400, "Invalid memberType");
     }
 
-    if (!req.file) {
-      return fail(res, 400, "Photo required");
-    }
-    if (!req.file.mimetype?.startsWith("image")) {
+    // ── files (upload.fields: photo + idPhoto) ──
+    const photoFile = req.files?.photo?.[0];
+    const idPhotoFile = req.files?.idPhoto?.[0];
+
+    if (!photoFile) return fail(res, 400, "Photo required");
+    if (!idPhotoFile) return fail(res, 400, "Worker ID photo required");
+    if (
+      !photoFile.mimetype?.startsWith("image") ||
+      !idPhotoFile.mimetype?.startsWith("image")
+    ) {
       return fail(res, 400, "Only image files allowed");
     }
 
-    // ── existing worker? (photo upload se PEHLE check, taaki bekaar upload na ho) ──
+    // ── existing worker? (upload se PEHLE check, taaki bekaar upload na ho) ──
     let worker = await WorkerProfile.findOne({ buildingCode, mobile });
 
     if (worker?.status === "Approved") {
@@ -133,15 +180,19 @@ const createWorkerPendingRequest = async (req, res) => {
       );
     }
 
-    // ── photo: compress + upload ──
-    const compressed = await sharp(req.file.buffer)
-      .resize({ width: 1200, withoutEnlargement: true })
-      .jpeg({ quality: 70 })
-      .toBuffer();
-    const { secure_url: photoUrl } = await uploadToCloudinary(
-      compressed,
-      "workerPhotos",
-    );
+    // ── dono photo parallel compress + upload ──
+    const [photoUrl, idPhotoUrl] = await Promise.all([
+      compressAndUpload(
+        photoFile,
+        { width: 1200, quality: 70 },
+        "workerPhotos",
+      ),
+      compressAndUpload(
+        idPhotoFile,
+        { width: 1600, quality: 80 },
+        "workerIdPhotos",
+      ),
+    ]);
 
     // ── fields jo create aur update dono mein same hain ──
     const fields = {
@@ -151,11 +202,15 @@ const createWorkerPendingRequest = async (req, res) => {
       flatNo: isFlatStaff ? flatNo : undefined,
       memberType: isFlatStaff ? memberType : undefined,
       photoUrl,
+      idPhotoUrl,
+      requestedBy: req.staff._id,
+      requestedByName: req.staff.workerName,   // pehle: req.staff.name
+      requestedGate,
       status: "PendingApproval",
     };
 
     if (worker) {
-      // Rejected / Pending record ko reset karke dobara request
+      // Rejected / Pending record reset karke dobara request
       Object.assign(worker, fields, {
         approvedBy: undefined,
         approverModel: undefined,
@@ -180,7 +235,7 @@ const createWorkerPendingRequest = async (req, res) => {
   } catch (err) {
     console.error("createWorkerPendingRequest error:", err);
 
-    // do request ek saath aayein to unique index (agar hai) yahan pakadta hai
+    // do request ek saath aayein to unique index yahan pakadta hai
     if (err.code === 11000) {
       return fail(res, 409, "Is worker ki request pehle se maujood hai");
     }

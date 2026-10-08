@@ -39,7 +39,11 @@ const staffSchema = new mongoose.Schema(
       minlength: [3, "Worker name must be at least 3 characters"],
       maxlength: [50, "Worker name cannot exceed 50 characters"],
     },
-
+    gate: {
+      type: String,
+      trim: true,
+      maxlength: [30, "Gate name cannot exceed 30 characters"],
+    },
     email: {
       type: String,
       unique: true,
