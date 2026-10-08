@@ -22,10 +22,13 @@ const visitorSchema = new mongoose.Schema(
         "Security",
         "Delivery",
         "Cab",
+        "Service", // ← Service add
         "Other",
       ],
       required: true,
     },
+    vehicleType: { type: String, enum: ["None", "2W", "4W"] }, // enum add
+    guardName: { type: String, trim: true }, // ← naya: guard ka snapshot
     photoUrl: { type: String },
     flatNo: { type: String, required: true, trim: true },
     memberType: { type: String, enum: ["Flat", "Shop"], trim: true }, // ✅ NAYA
@@ -69,8 +72,12 @@ const visitorSchema = new mongoose.Schema(
     isEmergencyExit: { type: Boolean, default: false },
     otp: { type: String, select: false },
     otpVerifiedAt: { type: Date },
+    subType: { type: String, trim: true },
+    vehicleNo: { type: String, trim: true },
+    vehicleType: { type: String, trim: true }, // "None" | "2W" | "4W"
+    otpAttempts: { type: Number, default: 0 },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 visitorSchema.index({ buildingCode: 1, createdAt: -1 });
