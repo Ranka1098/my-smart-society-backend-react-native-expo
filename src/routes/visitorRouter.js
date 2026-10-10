@@ -14,6 +14,7 @@ import checkBuildingSubscription from "../middleware/checkBuildingSubscription.j
 import checkFlatExists from "../controller/visitor/checkFlatExists.js";
 import checkVisitorStatus from "../controller/visitor/checkVisitorStatus.js";
 import getPendingVisitorsForGuard from "../controller/visitor/getPendingVisitorsForGuard.js";
+import getVisitorEntryStats from "../controller/visitor/getVisitorEntryStats.js";
 const visitorRouter = express.Router();
 
 visitorRouter.post(
@@ -21,14 +22,14 @@ visitorRouter.post(
   staffAuth,
   checkBuildingSubscription,
   upload.single("photo"),
-  createVisitorPendingRequest
+  createVisitorPendingRequest,
 );
 visitorRouter.post(
   "/visitor/emergency-exit",
   staffAuth,
   checkBuildingSubscription,
   upload.single("photo"),
-  emergencyExit
+  emergencyExit,
 );
 
 visitorRouter.get("/staff/checkFlat", staffAuth, checkFlatExists);
@@ -36,40 +37,45 @@ visitorRouter.post(
   "/finalizeEntry",
   staffAuth,
   checkBuildingSubscription,
-  finalizeEntry
+  finalizeEntry,
 );
 visitorRouter.patch(
   "/visitor/:id/exit",
   staffAuth,
   checkBuildingSubscription,
-  logExit
+  logExit,
 );
 visitorRouter.get(
   "/visitor/log",
   staffAuth,
   checkBuildingSubscription,
-  getVisitorLog
+  getVisitorLog,
 );
 visitorRouter.get(
   "/getGuardDashboard",
   staffAuth,
   checkBuildingSubscription,
-  getGuardDashboard
+  getGuardDashboard,
 );
 visitorRouter.post(
   "/memberApproveOrDeny",
   memberAuth,
   checkBuildingSubscription,
-  memberApproveOrDeny
+  memberApproveOrDeny,
 );
 visitorRouter.get(
   "/memberPendingVisitor",
   memberAuth,
   checkBuildingSubscription,
-  memberPendingVisitor
+  memberPendingVisitor,
 );
-visitorRouter.post("/staff/checkVisitorStatus",staffAuth, checkVisitorStatus);
+visitorRouter.post("/staff/checkVisitorStatus", staffAuth, checkVisitorStatus);
 
-visitorRouter.get("/staff/pendingVisitors", staffAuth, getPendingVisitorsForGuard);
+visitorRouter.get(
+  "/staff/pendingVisitors",
+  staffAuth,
+  getPendingVisitorsForGuard,
+);
+visitorRouter.get("/staff/visitorEntryStats", staffAuth, getVisitorEntryStats);
 
 export default visitorRouter;

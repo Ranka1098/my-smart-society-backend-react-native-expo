@@ -5,7 +5,7 @@ const CHANNELS = {
   default: { channelId: "default_sound", sound: "default" },
 };
 
-const DOORBELL_TYPES = ["VISITOR_APPROVAL"];
+const DOORBELL_TYPES = ["VISITOR_APPROVAL", "DELIVERY_OVERSTAY"];
 
 export const sendFCM = async (tokens, title, body, data = {}) => {
   if (!tokens?.length) return;

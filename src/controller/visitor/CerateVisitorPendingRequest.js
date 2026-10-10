@@ -8,14 +8,14 @@ import NotificationModel from "../../model/notification.js";
 const NOTIFICATION_TTL = 120;
 const MEMBER_TYPES = ["Flat", "Shop"];
 const PURPOSES = ["Guest", "Delivery", "Cab", "Service", "Other"];
-const VEHICLE_TYPES = ["None", "2W", "4W"];
-const MOBILE_RE = /^[6-9]\d{9}$/;
+const VEHICLE_TYPES = ["None", "2W", "3W", "4W"];
+const MOBILE_RE = /^\d{10}$/;
 const VEHICLE_RE = /^(\d{4}|[A-Z]{2}\d{2}[A-Z]{2}\d{4})$/;
 
 // Frontend rules (TYPE_CONFIG) ka server-side copy. Frontend bypass hua to bhi data saaf rahe.
 const RULES = {
   Guest: { mobile: "optional", vehicle: "optional", sub: false },
-  Delivery: { mobile: "hidden", vehicle: "hidden", sub: true },
+  Delivery: { mobile: "optional", vehicle: "optional", sub: true },
   Cab: { mobile: "optional", vehicle: "required", sub: false },
   Service: { mobile: "required", vehicle: "optional", sub: true },
   Other: { mobile: "optional", vehicle: "optional", sub: false },
@@ -85,6 +85,7 @@ const createVisitorPendingRequest = async (req, res) => {
     }
     // safety net: purana app "2 Wheeler" / "4 Wheeler" bheje to map kar do
     if (vehicleType === "2 Wheeler") vehicleType = "2W";
+    if (vehicleType === "3 Wheeler") vehicleType = "3W";
     if (vehicleType === "4 Wheeler") vehicleType = "4W";
     if (vehicleType && !VEHICLE_TYPES.includes(vehicleType)) {
       return bad("Invalid vehicleType");
@@ -258,6 +259,7 @@ const createVisitorPendingRequest = async (req, res) => {
         membersNotified: members.length,
         photoUrl,
         serverTime: Date.now(),
+          createdAt: visitor.createdAt,   // ← add
       },
     });
   } catch (error) {

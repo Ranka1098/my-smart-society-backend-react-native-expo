@@ -33,7 +33,7 @@ import workerRouter from "./src/routes/workerRouter.js";
 import paymentRouter from "./src/routes/paymentRouter.js";
 import webhookRouter from "./src/routes/webhookRouter.js";
 import checkSubscriptionExpiry from "./src/cron/checkSubscriptionExpiry.js";
-
+import { startDeliveryOverstayJob } from "./src/controller/visitor/deliveryOverstayJob.js";
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 connectDB();
 
@@ -49,7 +49,7 @@ const io = new Server(server, {
 });
 
 checkSubscriptionExpiry(io);
-
+startDeliveryOverstayJob(io);
 // io use karke jo socket banaya tha usko controler se kahi bhi use kar sakte hai
 app.set("io", io);
 

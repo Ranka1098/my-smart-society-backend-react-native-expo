@@ -6,7 +6,7 @@ const MAX_REASON_LENGTH = 200;
 
 const memberApproveOrDeny = async (req, res) => {
   try {
-    const { visitorId, action, rejectionReason } = req.body;
+    const { visitorId, action, rejectionReason, leaveWithGuard } = req.body;
     const memberId = req.member._id;
 
     if (
@@ -21,12 +21,13 @@ const memberApproveOrDeny = async (req, res) => {
 
     const isApprove = action === "approve";
     const now = new Date();
+    const isParcel = !isApprove && leaveWithGuard === true;
 
-    const reason =
-      typeof rejectionReason === "string" && rejectionReason.trim()
+    const reason = isParcel
+      ? "Parcel guard ke paas chhodo"
+      : typeof rejectionReason === "string" && rejectionReason.trim()
         ? rejectionReason.trim().slice(0, MAX_REASON_LENGTH)
         : "Member ne deny kiya";
-
     const update = isApprove
       ? {
           status: "Approved",
@@ -94,14 +95,14 @@ const memberApproveOrDeny = async (req, res) => {
     // Decision save ho chuka hai. Yahan fail hone par member ko error nahi dikhna chahiye.
     try {
       const io = req.app.get("io");
-
+      const parcel = isParcel && visitor.purpose === "Delivery";
       io?.to(`guard_${visitor.buildingCode}`).emit("visitor_decision", {
         visitorId: visitor._id,
         status: visitor.status,
         action,
         respondedBy: visitor.respondedBy,
+        leaveWithGuard: parcel,
       });
-
       // Baaki notified members ka modal band karo
       (visitor.notifiedMembers ?? []).forEach((mId) => {
         io?.to(`member_${mId}`).emit("visitor_decided", {
@@ -122,7 +123,9 @@ const memberApproveOrDeny = async (req, res) => {
           title: isApprove ? "Guest Approved ✅" : "Guest Denied ❌",
           message: isApprove
             ? `${visitor.name} ko ${decidedByName} ne approve kiya.`
-            : `${visitor.name} ko ${decidedByName} ne deny kiya.`,
+            : parcel
+              ? `${visitor.name} ko ${decidedByName} ne kaha: parcel guard ke paas chhod do.`
+              : `${visitor.name} ko ${decidedByName} ne deny kiya.`,
           referenceId: visitor._id,
           referenceModel: "Visitor",
           data: { flatNo: visitor.flatNo, purpose: visitor.purpose },
