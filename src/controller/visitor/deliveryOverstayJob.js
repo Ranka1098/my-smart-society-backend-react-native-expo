@@ -12,7 +12,7 @@ export const startDeliveryOverstayJob = (io) => {
       const now = new Date();
 
       const due = await Visitor.find({
-        purpose: "Delivery",
+        purpose: { $in: ["Delivery", "Cab"] },
         status: { $in: ["Approved", "ForcedEntry"] },
         exitTime: null,
         nextOverstayAlertAt: { $lte: now },
@@ -43,8 +43,10 @@ export const startDeliveryOverstayJob = (io) => {
 
         io.to(`guard_${v.buildingCode}`).emit("delivery_overstay", {
           visitorId: v._id,
+          purpose: v.purpose,
           name: v.name,
           subType: v.subType || "",
+          vehicleNo: v.vehicleNo || "",
           flatNo: v.flatNo,
           memberType: v.memberType,
           exitDeadline: v.exitDeadline,
@@ -61,13 +63,17 @@ export const startDeliveryOverstayJob = (io) => {
             .lean();
 
           const mins = Math.floor((now - new Date(v.entryTime)) / 60000);
-
+          const who =
+            v.purpose === "Cab"
+              ? `Cab${v.vehicleNo ? ` ${v.vehicleNo}` : ""}`
+              : `${v.name}${v.subType ? ` (${v.subType})` : ""}`;
           await sendFCM(
-            guards.map((g) => g.fcmToken),
-            "Delivery Overstay ⚠️",
-            `${who} ko ${unit} me ${mins}min ho gaye hai lekin abhi tak Exit nahi kiya.`,
+            tokens,
+            `${v.purpose} Overstay ⚠️`,
+            `${who} ko ${unit} me ${mins} min ho gaye. Exit nahi hua.`,
             {
               type: "DELIVERY_OVERSTAY",
+              purpose: v.purpose,
               visitorId: v._id.toString(),
               flatNo: v.flatNo,
               memberType: v.memberType || "Flat",
