@@ -5,8 +5,8 @@ import { notifyStaffToMember } from "../../controller/notifcation/notifyMembers.
 const finalizeEntry = async (req, res) => {
   try {
     const { visitorId, verificationMethod, forcedEntryReason } = req.body;
-    // const DELIVERY_EXIT_LIMIT_MS = 15 * 60 * 1000; // file ke top pe
-    const DELIVERY_EXIT_LIMIT_MS = 30 * 1000; // test ke liye
+    const DELIVERY_EXIT_LIMIT_MS = 10 * 60 * 1000;
+    // const DELIVERY_EXIT_LIMIT_MS = 30 * 1000; // test ke liye
     if (
       !visitorId ||
       !["FCM", "ManualCall", "ForcedEntry", "Denied"].includes(
@@ -57,11 +57,11 @@ const finalizeEntry = async (req, res) => {
       visitor.rejectionReason = "Guard ne cancel kiya";
     }
 
-  if (visitor.purpose === "Delivery" && visitor.status === "Approved") {
-  visitor.exitDeadline = new Date(now.getTime() + DELIVERY_EXIT_LIMIT_MS);
-  visitor.nextOverstayAlertAt = visitor.exitDeadline; // pehla alert deadline pe hi
-  visitor.overstayAlertCount = 0;
-}
+    if (visitor.purpose === "Delivery" && visitor.status === "Approved") {
+      visitor.exitDeadline = new Date(now.getTime() + DELIVERY_EXIT_LIMIT_MS);
+      visitor.nextOverstayAlertAt = visitor.exitDeadline; // pehla alert deadline pe hi
+      visitor.overstayAlertCount = 0;
+    }
     await visitor.save();
 
     const io = req.app.get("io");

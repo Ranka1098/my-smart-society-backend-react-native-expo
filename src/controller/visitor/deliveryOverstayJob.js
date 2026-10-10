@@ -3,8 +3,8 @@ import Staff from "../../model/staff.js";
 import { sendFCM } from "../notifcation/sendFcmNotification.js";
 
 const INTERVAL_MS = 1000; // 1 sec check, alert exact time pe
-const REPEAT_MS = 5 * 60 * 1000;
-const MAX_ALERTS = 5;
+const REPEAT_MS = 2 * 60 * 1000;
+// const REPEAT_MS = 30 * 1000;
 
 export const startDeliveryOverstayJob = (io) => {
   setInterval(async () => {
@@ -16,7 +16,6 @@ export const startDeliveryOverstayJob = (io) => {
         status: { $in: ["Approved", "ForcedEntry"] },
         exitTime: null,
         nextOverstayAlertAt: { $lte: now },
-        overstayAlertCount: { $lt: MAX_ALERTS },
       })
         .select("_id nextOverstayAlertAt")
         .limit(50)
@@ -31,7 +30,7 @@ export const startDeliveryOverstayJob = (io) => {
           {
             $set: {
               overstayAlertedAt: now,
-              nextOverstayAlertAt: new Date(scheduled.getTime() + REPEAT_MS),
+              nextOverstayAlertAt: new Date(now.getTime() + REPEAT_MS),
             },
             $inc: { overstayAlertCount: 1 },
           },
@@ -50,6 +49,7 @@ export const startDeliveryOverstayJob = (io) => {
           memberType: v.memberType,
           exitDeadline: v.exitDeadline,
           alertNo: v.overstayAlertCount,
+          minsInside: Math.floor((now - new Date(v.entryTime)) / 60000),
         });
 
         try {
@@ -60,10 +60,12 @@ export const startDeliveryOverstayJob = (io) => {
             .select("fcmToken")
             .lean();
 
+          const mins = Math.floor((now - new Date(v.entryTime)) / 60000);
+
           await sendFCM(
             guards.map((g) => g.fcmToken),
             "Delivery Overstay ⚠️",
-            `${who} ko ${unit} me time se zyada ho gaye. Exit nahi hua. (Alert ${v.overstayAlertCount}/${MAX_ALERTS})`,
+            `${who} ko ${unit} me ${mins}min ho gaye hai lekin abhi tak Exit nahi kiya.`,
             {
               type: "DELIVERY_OVERSTAY",
               visitorId: v._id.toString(),
