@@ -61,6 +61,7 @@ const visitorSchema = new mongoose.Schema(
         "ManualCall",
         "ForcedEntry",
         "Denied",
+           "NoResponse", // ← yahan
         "OTP",
         "PreApprovedWorker",
       ],
@@ -77,7 +78,6 @@ const visitorSchema = new mongoose.Schema(
     otpVerifiedAt: { type: Date },
     subType: { type: String, trim: true },
     vehicleNo: { type: String, trim: true },
-    vehicleType: { type: String, trim: true }, // "None" | "2W" | "4W"
     otpAttempts: { type: Number, default: 0 },
     overstayAlertCount: { type: Number, default: 0 },
   },

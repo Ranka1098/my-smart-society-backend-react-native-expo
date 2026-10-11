@@ -2,7 +2,7 @@ import Visitor from "../../model/Visitor.js";
 import Member from "../../model/member.js";
 
 // Isse purani Pending entries guard ko dobara restore nahi hongi
-const MAX_PENDING_AGE_MS = 24 * 60 * 60 * 1000;
+const MAX_PENDING_AGE_MS = 30 * 60 * 1000; // 24h se 30 min
 
 const getPendingVisitorsForGuard = async (req, res) => {
   try {
@@ -10,7 +10,6 @@ const getPendingVisitorsForGuard = async (req, res) => {
     if (!buildingCode) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-
     // Expired (notificationExpiresAt beet chuki) entries bhi aati hain.
     // Guard ko "no response" stage me call/force karna hota hai.
     const visitors = await Visitor.find({
@@ -22,7 +21,7 @@ const getPendingVisitorsForGuard = async (req, res) => {
       createdAt: { $gte: new Date(Date.now() - MAX_PENDING_AGE_MS) },
     })
       .select(
-        "name purpose photoUrl flatNo memberType notificationExpiresAt notifiedMembers",
+        "name purpose subType vehicleNo photoUrl flatNo memberType notificationExpiresAt notifiedMembers createdAt",
       )
       .sort({ createdAt: -1 })
       .lean();
@@ -53,6 +52,9 @@ const getPendingVisitorsForGuard = async (req, res) => {
       members: (v.notifiedMembers ?? [])
         .map((id) => memberMap.get(String(id)))
         .filter(Boolean),
+      subType: v.subType,
+      vehicleNo: v.vehicleNo,
+      createdAt: v.createdAt,
     }));
 
     return res.json({ success: true, visitors: result });

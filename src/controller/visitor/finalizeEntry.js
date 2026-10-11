@@ -15,7 +15,7 @@ const finalizeEntry = async (req, res) => {
     // const DELIVERY_EXIT_LIMIT_MS = 30 * 1000; // test ke liye
     if (
       !visitorId ||
-      !["FCM", "ManualCall", "ForcedEntry", "Denied"].includes(
+      !["FCM", "ManualCall", "ForcedEntry", "Denied", "NoResponse"].includes(
         verificationMethod,
       )
     ) {
@@ -44,7 +44,11 @@ const finalizeEntry = async (req, res) => {
         .status(409)
         .json({ success: false, message: `Already ${visitor.status}` });
     }
-
+    if (verificationMethod === "NoResponse" && visitor.status !== "Pending") {
+      return res
+        .status(409)
+        .json({ success: false, message: `Already ${visitor.status}` });
+    }
     const now = new Date();
     visitor.verificationMethod = verificationMethod;
 
@@ -60,7 +64,10 @@ const finalizeEntry = async (req, res) => {
     } else {
       visitor.status = "Rejected";
       visitor.rejectedAt = now;
-      visitor.rejectionReason = "Guard ne cancel kiya";
+      visitor.rejectionReason =
+        verificationMethod === "NoResponse"
+          ? "Response nahi aaya"
+          : "Guard ne cancel kiya";
     }
 
     const limitMs = EXIT_LIMIT_MS[visitor.purpose];
@@ -74,7 +81,7 @@ const finalizeEntry = async (req, res) => {
     const io = req.app.get("io");
     (visitor.notifiedMembers || []).forEach((memberId) => {
       io.to(`member_${memberId}`).emit(
-        verificationMethod === "Denied"
+        verificationMethod === "Denied" || verificationMethod === "NoResponse"
           ? "visitor_cancelled_by_guard"
           : "visitor_decided",
         { visitorId: visitor._id, status: visitor.status },
@@ -116,7 +123,10 @@ const finalizeEntry = async (req, res) => {
     }
 
     // ✅ ADD — dashboard ke liye guard room mein emit karo
-    if (verificationMethod !== "Denied") {
+    if (
+      verificationMethod !== "Denied" &&
+      verificationMethod !== "NoResponse"
+    ) {
       io.to(`guard_${visitor.buildingCode}`).emit("visitor_finalized", {
         visitorId: visitor._id,
         method: verificationMethod,

@@ -40,9 +40,14 @@ const getVisitorEntryStats = async (req, res) => {
             ],
           }),
           noResponse: count({
-            $and: [
-              { $eq: ["$status", "Pending"] },
-              { $lt: ["$notificationExpiresAt", now] },
+            $or: [
+              { $eq: ["$verificationMethod", "NoResponse"] },
+              {
+                $and: [
+                  { $eq: ["$status", "Pending"] },
+                  { $lt: ["$notificationExpiresAt", now] },
+                ],
+              },
             ],
           }),
           callAllowed: count({ $eq: ["$verificationMethod", "ManualCall"] }),
@@ -50,6 +55,7 @@ const getVisitorEntryStats = async (req, res) => {
           cancelled: count({
             $and: [
               { $eq: ["$status", "Rejected"] },
+              { $ne: ["$verificationMethod", "NoResponse"] },
               { $eq: [{ $type: "$respondedBy" }, "missing"] },
             ],
           }),
