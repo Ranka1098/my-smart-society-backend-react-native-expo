@@ -15,6 +15,7 @@ import checkFlatExists from "../controller/visitor/checkFlatExists.js";
 import checkVisitorStatus from "../controller/visitor/checkVisitorStatus.js";
 import getPendingVisitorsForGuard from "../controller/visitor/getPendingVisitorsForGuard.js";
 import getVisitorEntryStats from "../controller/visitor/getVisitorEntryStats.js";
+
 const visitorRouter = express.Router();
 
 visitorRouter.post(
@@ -76,6 +77,10 @@ visitorRouter.get(
   staffAuth,
   getPendingVisitorsForGuard,
 );
+
+
+
+
 visitorRouter.get("/staff/visitorEntryStats", staffAuth, getVisitorEntryStats);
 
 export default visitorRouter;

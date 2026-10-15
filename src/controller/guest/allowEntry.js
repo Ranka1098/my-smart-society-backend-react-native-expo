@@ -151,7 +151,7 @@ const allowEntry = async (req, res) => {
     const attempt = await Visitor.findOneAndUpdate(
       { _id: id, buildingCode, status: "Pending", ...ATTEMPTS_LEFT },
       { $inc: { otpAttempts: 1 } },
-      { new: true },
+      { returnDocument: "after" },
     )
       .select("+otp otpAttempts")
       .lean();
@@ -211,7 +211,7 @@ const allowEntry = async (req, res) => {
         },
         $unset: { otp: "" },
       },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!updated) {

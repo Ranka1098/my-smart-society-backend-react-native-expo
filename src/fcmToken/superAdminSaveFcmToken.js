@@ -1,19 +1,23 @@
-import superAdminModel from "../../src/model/superAdmin.js";
+import { claimFcmToken, isValidToken } from "./claimFcmToken.js";
 
 const superAdminSaveFcmToken = async (req, res) => {
   try {
     const { fcmToken } = req.body;
-    const superAdminId = req.superAdmin.id; // superAdminAuth middleware se aata hai
-
-    if (!fcmToken) {
-      return res.status(400).json({ success: false, message: "FCM token required" });
+    if (!isValidToken(fcmToken)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "FCM token required" });
     }
 
-    await superAdminModel.findByIdAndUpdate(superAdminId, { fcmToken });
+    const id = req.superAdmin?._id ?? req.superAdmin?.id; // superAdminAuth se
+    if (!id) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
 
+    await claimFcmToken("superAdmin", id, fcmToken);
     return res.status(200).json({ success: true, message: "FCM token saved" });
   } catch (error) {
-    console.log("FCM Token Save Error:", error);
+    console.error("SuperAdmin FCM Token Save Error:", error);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };

@@ -1,23 +1,18 @@
-import memberModel from "../../src/model/member.js";
+import { claimFcmToken, isValidToken } from "./claimFcmToken.js";
 
 const memberSaveFcmToken = async (req, res) => {
   try {
-    const { fcmToken, deviceId } = req.body;
-    const memberId = req.member._id; // memberAuth → req.member._id
-
-    if (!fcmToken) {
+    const { fcmToken } = req.body;
+    if (!isValidToken(fcmToken)) {
       return res
         .status(400)
         .json({ success: false, message: "FCM token required" });
     }
 
-    await memberModel.findByIdAndUpdate(memberId, {
-      fcmToken,
-    });
-
+    await claimFcmToken("member", req.member._id, fcmToken);
     return res.status(200).json({ success: true, message: "FCM token saved" });
   } catch (error) {
-    console.log("Member FCM Token Save Error:", error);
+    console.error("Member FCM Token Save Error:", error);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };

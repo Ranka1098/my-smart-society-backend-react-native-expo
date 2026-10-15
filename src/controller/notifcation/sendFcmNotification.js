@@ -5,21 +5,27 @@ const CHANNELS = {
   default: { channelId: "default_sound", sound: "default" },
 };
 
-const DOORBELL_TYPES = ["VISITOR_APPROVAL", "DELIVERY_OVERSTAY"];
+const pickChannel = (type) =>
+  type === "VISITOR_APPROVAL" ? CHANNELS.doorbell : CHANNELS.default;
 
+const DEAD_CODES = [
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-registration-token",
+];
+
+// return: { successCount, failureCount, deadTokens }
 export const sendFCM = async (tokens, title, body, data = {}) => {
-  if (!tokens?.length) return;
+  const empty = { successCount: 0, failureCount: 0, deadTokens: [] };
+  if (!tokens?.length) return empty;
 
   const uniqueTokens = [...new Set(tokens.filter(Boolean))];
-  if (!uniqueTokens.length) return;
+  if (!uniqueTokens.length) return empty;
 
   const stringData = Object.fromEntries(
     Object.entries(data).map(([k, v]) => [k, String(v)]),
   );
 
-  const ch = DOORBELL_TYPES.includes(stringData.type)
-    ? CHANNELS.doorbell
-    : CHANNELS.default;
+  const ch = pickChannel(stringData.type);
 
   try {
     const startTime = Date.now();
@@ -29,9 +35,13 @@ export const sendFCM = async (tokens, title, body, data = {}) => {
       data: stringData,
       android: {
         priority: "high",
+        ttl: 2 * 60 * 1000,
         notification: {
-          channelId: ch.channelId, // ✅ app ke channel ID se same
-          sound: ch.sound, // ✅ res/raw ki file, extension nahi
+          channelId: ch.channelId,
+          sound: ch.sound,
+          ...(stringData.visitorId && {
+            tag: `${stringData.type}-${stringData.visitorId}`,
+          }),
         },
       },
       apns: {
@@ -45,22 +55,29 @@ export const sendFCM = async (tokens, title, body, data = {}) => {
       },
     });
 
-    console.log(`[FCM] Sent in ${Date.now() - startTime}ms`);
     console.log(
-      `[FCM] Sent: ${result.successCount} success, ${result.failureCount} failed`,
+      `[FCM] ${Date.now() - startTime}ms | ${result.successCount} ok, ${result.failureCount} failed`,
     );
 
+    const deadTokens = [];
     result.responses.forEach((r, i) => {
-      if (!r.success) {
-        console.log(
-          "[FCM FAIL]",
-          uniqueTokens[i]?.slice(0, 20) + "...",
-          "→",
-          r.error?.message,
-        );
-      }
+      if (r.success) return;
+      console.log(
+        "[FCM FAIL]",
+        uniqueTokens[i]?.slice(0, 20) + "...",
+        "→",
+        r.error?.code || r.error?.message,
+      );
+      if (DEAD_CODES.includes(r.error?.code)) deadTokens.push(uniqueTokens[i]);
     });
+
+    return {
+      successCount: result.successCount,
+      failureCount: result.failureCount,
+      deadTokens,
+    };
   } catch (err) {
     console.log("[FCM] Error:", err.message);
+    return empty;
   }
 };

@@ -143,5 +143,8 @@ staffSchema.index(
 // StaffModel.js ka last line change karo
 const StaffModel =
   mongoose.models.Staff || mongoose.model("Staff", staffSchema);
-
+staffSchema.index(
+  { fcmToken: 1 },
+  { partialFilterExpression: { fcmToken: { $type: "string" } } },
+);
 export default StaffModel;

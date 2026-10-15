@@ -123,5 +123,8 @@ adminSchema.index(
 
 const adminModel =
   mongoose.models.Admin || mongoose.model("Admin", adminSchema);
-
+adminSchema.index(
+  { fcmToken: 1 },
+  { partialFilterExpression: { fcmToken: { $type: "string" } } },
+);
 export default adminModel;

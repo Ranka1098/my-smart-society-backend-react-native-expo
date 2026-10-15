@@ -1,145 +1,166 @@
+import mongoose from "mongoose";
 import Visitor from "../../model/Visitor.js";
-import Member from "../../model/member.js"; // ✅ path check karo
-import { notifyStaffToMember } from "../../controller/notifcation/notifyMembers.js"; // ✅ default hataya, named import
+import Member from "../../model/member.js";
+import { notifyStaffToMember } from "../../controller/notifcation/notifyMembers.js";
+
+const METHODS = ["FCM", "ManualCall", "ForcedEntry", "Denied", "NoResponse"];
+const APPROVING = ["FCM", "ManualCall", "ForcedEntry"];
+const CANCELLING = ["Denied", "NoResponse"];
+const BLOCKED = ["Rejected", "Exited"];
+
+const fail = (res, code, message) =>
+  res.status(code).json({ success: false, message });
+
+// Member ko "entry di gayi" notification (ManualCall / ForcedEntry). Best-effort.
+const notifyEntry = async (io, v, method) => {
+  const members = await Member.find({ _id: { $in: v.notifiedMembers || [] } })
+    .select("_id fcmToken")
+    .lean();
+
+  const forced = method === "ForcedEntry";
+  const title = forced ? "Force Entry Diya Gaya ⚠️" : "Visitor Entry Verified";
+  const message = forced
+    ? `${v.name} ko bina response ke force entry di gayi.\nReason: ${v.forcedEntryReason}`
+    : `${v.name} ko call par verify karke entry di gayi.`;
+
+  const results = await Promise.allSettled(
+    members.map((m) =>
+      notifyStaffToMember({
+        io,
+        buildingCode: v.buildingCode,
+        memberId: m._id,
+        memberFcmToken: m.fcmToken,
+        type: "GUEST_APPROVED",
+        title,
+        message,
+        data: { visitorId: String(v._id), status: v.status, method },
+        referenceId: v._id,
+      }),
+    ),
+  );
+  results.forEach((r) => {
+    if (r.status === "rejected")
+      console.error("finalizeEntry notify error:", r.reason);
+  });
+};
 
 const finalizeEntry = async (req, res) => {
   try {
-    const { visitorId, verificationMethod, forcedEntryReason } = req.body;
+    const {
+      visitorId,
+      verificationMethod: method,
+      forcedEntryReason,
+    } = req.body;
+    const buildingCode = req.staff?.buildingCode ?? req.buildingCode;
 
-    const EXIT_LIMIT_MS = {
-      Delivery: 10 * 60 * 1000,
-      Cab: 10 * 60 * 1000, // Cab ka alag chahiye to yahan badlo
-    };
-
-    // const DELIVERY_EXIT_LIMIT_MS = 10 * 60 * 1000;
-    // const DELIVERY_EXIT_LIMIT_MS = 30 * 1000; // test ke liye
+    if (!buildingCode) return fail(res, 401, "Unauthorized");
     if (
-      !visitorId ||
-      !["FCM", "ManualCall", "ForcedEntry", "Denied", "NoResponse"].includes(
-        verificationMethod,
-      )
+      typeof visitorId !== "string" ||
+      !mongoose.isValidObjectId(visitorId) ||
+      !METHODS.includes(method)
     ) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid params" });
+      return fail(res, 400, "Invalid params");
     }
 
-    const visitor = await Visitor.findById(visitorId); // ✅ MOVE — pehle fetch kar
-    if (!visitor)
-      return res
-        .status(404)
-        .json({ success: false, message: "Visitor nahi mila" });
-
-    if (verificationMethod === "ForcedEntry" && !forcedEntryReason?.trim()) {
-      console.log("🔍 notifiedMembers:", visitor.notifiedMembers); // ✅ ab sahi hai
-      return res.status(400).json({
-        success: false,
-        message: "Forced entry ke liye reason required",
-      });
+    const reason =
+      typeof forcedEntryReason === "string" ? forcedEntryReason.trim() : "";
+    if (method === "ForcedEntry" && !reason) {
+      return fail(res, 400, "Forced entry ke liye reason required");
     }
 
-    const blockedStatuses = ["Rejected", "Exited"];
-    if (blockedStatuses.includes(visitor.status)) {
-      return res
-        .status(409)
-        .json({ success: false, message: `Already ${visitor.status}` });
+    // ── CHECKS (sirf state padho) ──
+    const visitor = await Visitor.findOne({ _id: visitorId, buildingCode })
+      .select("status awaitingGuardConfirm")
+      .lean();
+    if (!visitor) return fail(res, 404, "Visitor nahi mila");
+
+    const awaiting = visitor.awaitingGuardConfirm === true;
+
+    if (visitor.status === "Approved" && !awaiting && method !== "Denied") {
+      return fail(res, 409, "Already Approved");
     }
-    if (verificationMethod === "NoResponse" && visitor.status !== "Pending") {
-      return res
-        .status(409)
-        .json({ success: false, message: `Already ${visitor.status}` });
+    if (BLOCKED.includes(visitor.status)) {
+      return fail(res, 409, `Already ${visitor.status}`);
     }
+    if (method === "NoResponse" && visitor.status !== "Pending") {
+      return fail(res, 409, `Already ${visitor.status}`);
+    }
+
+    // ── ATOMIC UPDATE ──
+    // Filter mein purani state: do guard ek saath dabayein to sirf ek jeetega.
     const now = new Date();
-    visitor.verificationMethod = verificationMethod;
+    const $set = APPROVING.includes(method)
+      ? {
+          status: "Approved",
+          approvedAt: now,
+          entryTime: now,
+          verificationMethod: method,
+          awaitingGuardConfirm: false,
+          ...(method === "ForcedEntry" && { forcedEntryReason: reason }),
+        }
+      : {
+          status: "Rejected",
+          rejectedAt: now,
+          verificationMethod: method,
+          awaitingGuardConfirm: false,
+          rejectionReason:
+            method === "NoResponse"
+              ? "Response nahi aaya"
+              : "Guard ne cancel kiya",
+        };
 
-    if (verificationMethod === "FCM" || verificationMethod === "ManualCall") {
-      visitor.status = "Approved";
-      visitor.approvedAt = now;
-      visitor.entryTime = now;
-    } else if (verificationMethod === "ForcedEntry") {
-      visitor.status = "Approved";
-      visitor.approvedAt = now;
-      visitor.entryTime = now;
-      visitor.forcedEntryReason = forcedEntryReason.trim();
-    } else {
-      visitor.status = "Rejected";
-      visitor.rejectedAt = now;
-      visitor.rejectionReason =
-        verificationMethod === "NoResponse"
-          ? "Response nahi aaya"
-          : "Guard ne cancel kiya";
-    }
+    const v = await Visitor.findOneAndUpdate(
+      {
+        _id: visitorId,
+        buildingCode,
+        status: visitor.status,
+        awaitingGuardConfirm: awaiting ? true : { $ne: true },
+      },
+      { $set },
+      {
+        returnDocument: "after",
+        projection:
+          "name buildingCode status notifiedMembers forcedEntryReason",
+      },
+    ).lean();
 
-    const limitMs = EXIT_LIMIT_MS[visitor.purpose];
-    if (limitMs && visitor.status === "Approved" && !visitor.exitDeadline) {
-      visitor.exitDeadline = new Date(now.getTime() + limitMs);
-      visitor.nextOverstayAlertAt = visitor.exitDeadline;
-      visitor.overstayAlertCount = 0;
-    }
-    await visitor.save();
+    if (!v) return fail(res, 409, "Already actioned");
 
+    // ── REAL-TIME + PUSH: best-effort (entry save ho chuki hai) ──
     const io = req.app.get("io");
-    (visitor.notifiedMembers || []).forEach((memberId) => {
-      io.to(`member_${memberId}`).emit(
-        verificationMethod === "Denied" || verificationMethod === "NoResponse"
-          ? "visitor_cancelled_by_guard"
-          : "visitor_decided",
-        { visitorId: visitor._id, status: visitor.status },
-      );
-    });
+    const cancelled = CANCELLING.includes(method);
 
-    if (
-      verificationMethod === "ManualCall" ||
-      verificationMethod === "ForcedEntry"
-    ) {
-      const members = await Member.find({
-        _id: { $in: visitor.notifiedMembers || [] },
-      }).select("_id fcmToken");
+    const memberEvent = cancelled
+      ? "visitor_cancelled_by_guard"
+      : "visitor_decided";
+    (v.notifiedMembers || []).forEach((memberId) =>
+      io
+        ?.to(`member_${memberId}`)
+        .emit(memberEvent, { visitorId: v._id, status: v.status }),
+    );
 
-      const isForced = verificationMethod === "ForcedEntry";
-
-      for (const m of members) {
-        await notifyStaffToMember({
-          io,
-          buildingCode: visitor.buildingCode,
-          buildingId: visitor.buildingId,
-          memberId: m._id,
-          memberFcmToken: m.fcmToken,
-          type: "GUEST_APPROVED",
-          title: isForced
-            ? "Force Entry Diya Gaya ⚠️"
-            : "Visitor Entry Verified",
-          message: isForced
-            ? `${visitor.name} ko bina response ke force entry di gayi.\nReason: ${visitor.forcedEntryReason}`
-            : `${visitor.name} ko call par verify karke entry di gayi.`,
-          data: {
-            visitorId: String(visitor._id),
-            status: visitor.status,
-            method: isForced ? "ForcedEntry" : "ManualCall",
-          },
-          referenceId: visitor._id,
-        });
-      }
+    if (!cancelled) {
+      io?.to(`guard_${v.buildingCode}`).emit("visitor_finalized", {
+        visitorId: v._id,
+        method,
+      });
     }
 
-    // ✅ ADD — dashboard ke liye guard room mein emit karo
-    if (
-      verificationMethod !== "Denied" &&
-      verificationMethod !== "NoResponse"
-    ) {
-      io.to(`guard_${visitor.buildingCode}`).emit("visitor_finalized", {
-        visitorId: visitor._id,
-        method: verificationMethod,
-      });
+    if (method === "ManualCall" || method === "ForcedEntry") {
+      try {
+        await notifyEntry(io, v, method);
+      } catch (e) {
+        console.error("finalizeEntry notify error:", e);
+      }
     }
 
     return res.status(200).json({
       success: true,
-      data: { visitorId: visitor._id, status: visitor.status },
+      data: { visitorId: v._id, status: v.status },
     });
   } catch (error) {
     console.error("finalizeEntry error:", error);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return fail(res, 500, "Server error");
   }
 };
 

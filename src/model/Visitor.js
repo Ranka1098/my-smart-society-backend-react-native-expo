@@ -27,8 +27,6 @@ const visitorSchema = new mongoose.Schema(
       ],
       required: true,
     },
-    exitDeadline: { type: Date },
-    overstayAlertedAt: { type: Date },
     vehicleType: { type: String, enum: ["None", "2W", "3W", "4W"] },
     guardName: { type: String, trim: true }, // ← naya: guard ka snapshot
     photoUrl: { type: String },
@@ -61,7 +59,7 @@ const visitorSchema = new mongoose.Schema(
         "ManualCall",
         "ForcedEntry",
         "Denied",
-           "NoResponse", // ← yahan
+        "NoResponse", // ← yahan
         "OTP",
         "PreApprovedWorker",
       ],
@@ -73,13 +71,13 @@ const visitorSchema = new mongoose.Schema(
     exitTime: { type: Date },
     exitPhotoUrl: { type: String },
     isEmergencyExit: { type: Boolean, default: false },
-    nextOverstayAlertAt: { type: Date },
     otp: { type: String, select: false },
     otpVerifiedAt: { type: Date },
+    leaveWithGuard: { type: Boolean, default: false },
     subType: { type: String, trim: true },
     vehicleNo: { type: String, trim: true },
     otpAttempts: { type: Number, default: 0 },
-    overstayAlertCount: { type: Number, default: 0 },
+    awaitingGuardConfirm: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -87,11 +85,6 @@ const visitorSchema = new mongoose.Schema(
 visitorSchema.index({ buildingCode: 1, createdAt: -1 });
 visitorSchema.index({ buildingCode: 1, flatNo: 1 });
 visitorSchema.index({ buildingCode: 1, status: 1 });
-visitorSchema.index({
-  purpose: 1,
-  status: 1,
-  exitTime: 1,
-  nextOverstayAlertAt: 1,
-});
+
 export default mongoose.models.Visitor ||
   mongoose.model("Visitor", visitorSchema);

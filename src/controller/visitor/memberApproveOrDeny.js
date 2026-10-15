@@ -24,23 +24,25 @@ const memberApproveOrDeny = async (req, res) => {
     const isParcel = !isApprove && leaveWithGuard === true;
 
     const reason = isParcel
-      ? "Parcel guard ke paas chhodo"
+      ? "Member ne guard ke paas rukne/chhodne ko kaha"
       : typeof rejectionReason === "string" && rejectionReason.trim()
         ? rejectionReason.trim().slice(0, MAX_REASON_LENGTH)
         : "Member ne deny kiya";
-    const update = isApprove
-      ? {
-          status: "Approved",
-          verificationMethod: "FCM",
-          approvedAt: now,
-          respondedBy: memberId,
-        }
-      : {
-          status: "Denied",
-          rejectedAt: now,
-          rejectionReason: reason,
-          respondedBy: memberId,
-        };
+const update = isApprove
+  ? {
+      status: "Approved",
+      verificationMethod: "FCM",
+      approvedAt: now,
+      respondedBy: memberId,
+      awaitingGuardConfirm: true,
+    }
+  : {
+      status: "Denied",
+      rejectedAt: now,
+      rejectionReason: reason,
+      respondedBy: memberId,
+      leaveWithGuard: isParcel,
+    };
 
     // ATOMIC: check + update ek saath. Do members ek saath dabayein to sirf ek jeetega.
     // - status Pending ho
@@ -55,7 +57,7 @@ const memberApproveOrDeny = async (req, res) => {
         notificationExpiresAt: { $gte: now },
       },
       { $set: update },
-      { new: true },
+      { returnDocument: "after" },
     ).populate("respondedBy", "fullName");
 
     if (!visitor) {
@@ -95,7 +97,7 @@ const memberApproveOrDeny = async (req, res) => {
     // Decision save ho chuka hai. Yahan fail hone par member ko error nahi dikhna chahiye.
     try {
       const io = req.app.get("io");
-      const parcel = isParcel && visitor.purpose === "Delivery";
+      const parcel = isParcel && ["Delivery", "Cab"].includes(visitor.purpose);
       io?.to(`guard_${visitor.buildingCode}`).emit("visitor_decision", {
         visitorId: visitor._id,
         status: visitor.status,
@@ -124,7 +126,9 @@ const memberApproveOrDeny = async (req, res) => {
           message: isApprove
             ? `${visitor.name} ko ${decidedByName} ne approve kiya.`
             : parcel
-              ? `${visitor.name} ko ${decidedByName} ne kaha: parcel guard ke paas chhod do.`
+              ? visitor.purpose === "Cab"
+                ? `${visitor.name} ko ${decidedByName} ne kaha: gate par wait karo.`
+                : `${visitor.name} ko ${decidedByName} ne kaha: parcel guard ke paas chhod do.`
               : `${visitor.name} ko ${decidedByName} ne deny kiya.`,
           referenceId: visitor._id,
           referenceModel: "Visitor",

@@ -32,7 +32,12 @@ const getVisitorEntryStats = async (req, res) => {
         $group: {
           _id: null,
           total: { $sum: 1 },
-          approved: count({ $eq: ["$verificationMethod", "FCM"] }),
+          approved: count({
+            $and: [
+              { $eq: ["$verificationMethod", "FCM"] },
+              { $ne: ["$awaitingGuardConfirm", true] },
+            ],
+          }),
           denied: count({
             $and: [
               { $in: ["$status", ["Denied", "Rejected"]] },

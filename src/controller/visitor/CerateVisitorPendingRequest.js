@@ -16,7 +16,7 @@ const VEHICLE_RE = /^(\d{4}|[A-Z]{2}\d{2}[A-Z]{2}\d{4})$/;
 const RULES = {
   Guest: { mobile: "optional", vehicle: "optional", sub: false },
   Delivery: { mobile: "optional", vehicle: "optional", sub: true },
-  Cab: { mobile: "optional", vehicle: "required", sub: false },
+  Cab: { mobile: "optional", vehicle: "required", sub: true },
   Service: { mobile: "required", vehicle: "optional", sub: true },
   Other: { mobile: "optional", vehicle: "optional", sub: false },
 };
@@ -68,7 +68,7 @@ const createVisitorPendingRequest = async (req, res) => {
 
     if (rule.sub && !subType) {
       return bad(
-        purpose === "Delivery" ? "Company chuno" : "Kaam ka type chuno",
+        purpose === "Service" ? "Kaam ka type chuno" : "Company chuno",
       );
     }
     if (rule.mobile === "required" && !MOBILE_RE.test(mobile)) {
@@ -131,6 +131,19 @@ const createVisitorPendingRequest = async (req, res) => {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + NOTIFICATION_TTL * 1000);
 
+    // CDN ready hone tak wait (max ~3 sec)
+    const waitForImage = async (url, tries = 6) => {
+      for (let i = 0; i < tries; i++) {
+        try {
+          const r = await fetch(url, { method: "HEAD" });
+          if (r.ok) return true;
+        } catch {}
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      return false;
+    };
+    await waitForImage(photoUrl);
+
     const visitor = await Visitor.create({
       buildingCode: code,
       name: visitorName,
@@ -189,7 +202,7 @@ const createVisitorPendingRequest = async (req, res) => {
     try {
       const tokens = members.map((m) => m.fcmToken).filter(Boolean);
       if (tokens.length > 0) {
-        await sendFCM(
+       const r = await sendFCM(
           tokens,
           "Visitor at Gate 🔔",
           `${visitorName} (${label})${vehicleTxt} aaya hai. Approve ya Deny karo.`,
@@ -209,6 +222,12 @@ const createVisitorPendingRequest = async (req, res) => {
             serverTime: String(Date.now()),
           },
         );
+        if (r?.deadTokens?.length) {
+          await Member.updateMany(
+            { fcmToken: { $in: r.deadTokens } },
+            { $unset: { fcmToken: "" } },
+          );
+        }
       }
     } catch (e) {
       console.error("createVisitorPendingRequest fcm error:", e);
@@ -259,7 +278,7 @@ const createVisitorPendingRequest = async (req, res) => {
         membersNotified: members.length,
         photoUrl,
         serverTime: Date.now(),
-          createdAt: visitor.createdAt,   // ← add
+        createdAt: visitor.createdAt, // ← add
       },
     });
   } catch (error) {

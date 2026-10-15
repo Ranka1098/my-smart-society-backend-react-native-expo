@@ -257,6 +257,12 @@ memberSchema.index(
     partialFilterExpression: { isVerified: false, role: "primary" },
   },
 );
-
+// =========================
+// FCM TOKEN lookup (login pe dedupe tez karne ke liye)
+// =========================
+memberSchema.index(
+  { fcmToken: 1 },
+  { partialFilterExpression: { fcmToken: { $type: "string" } } },
+);
 // export default mongoose.model("Member", memberSchema);
 export default mongoose.models.Member || mongoose.model("Member", memberSchema);

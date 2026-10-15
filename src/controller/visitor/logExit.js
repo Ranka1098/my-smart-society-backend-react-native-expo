@@ -146,7 +146,7 @@ const logExit = async (req, res) => {
         exitTime: null,
       },
       { $set: { status: "Exited", exitTime: new Date() } },
-      { new: true },
+     { returnDocument: "after" },
     );
 
     if (!visitor) {
