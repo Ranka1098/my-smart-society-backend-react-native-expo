@@ -14,7 +14,7 @@ const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const OTP_RE = /^\d{4}$/;
 const MAX_OTP_ATTEMPTS = 5;
-const VEHICLE_TYPES = ["None", "2W", "4W"];
+const VEHICLE_TYPES = ["None", "2W", "3W", "4W"];
 const VEHICLE_RE = /^(\d{4}|[A-Z]{2}\d{2}[A-Z]{2}\d{4})$/; // aakhri 4 digit (1234) ya poora number (MH12RE1234)
 
 const MONTH_INDEX = {
@@ -65,6 +65,58 @@ const ATTEMPTS_LEFT = {
     { otpAttempts: { $lt: MAX_OTP_ATTEMPTS } },
     { otpAttempts: { $exists: false } },
   ],
+};
+
+// MAX_OTP_ATTEMPTS galat OTP ke baad request cancel (Denied) + guard UI se hatao + member ko batao.
+// Conditional update atomic hai: sirf pehla caller jeetega, isliye notify ek hi baar hoga.
+// Notification/socket best-effort: fail ho to guard ka response na ruke.
+const lockVisitor = async ({ req, guardId, id, buildingCode }) => {
+  const visitor = await Visitor.findOneAndUpdate(
+    { _id: id, buildingCode, status: "Pending" },
+    { $set: { status: "Denied" }, $unset: { otp: "" } },
+    { returnDocument: "after" },
+  ).lean();
+  if (!visitor) return false; // kisi aur request ne pehle hi lock kar diya
+
+  try {
+    const io = req.app.get("io");
+
+    io?.to(`guard_${buildingCode}`).emit("visitor_removed_from_preapproved", {
+      visitorId: visitor._id,
+    });
+
+    if (!visitor.respondedBy) return true;
+    io?.to(`member_${visitor.respondedBy}`).emit("visitor_status_update", {
+      visitorId: visitor._id,
+      status: "Denied",
+    });
+
+    const [guard, member] = await Promise.all([
+      Staff.findById(guardId).select("name").lean(),
+      Member.findById(visitor.respondedBy).select("fcmToken").lean(),
+    ]);
+
+    await notifyStaffToMember({
+      io,
+      buildingCode,
+      memberId: visitor.respondedBy,
+      memberFcmToken: member?.fcmToken,
+      type: "GUEST_OTP_FAILED",
+      title: "Guest OTP galat ⚠️",
+      message: `${visitor.name} ke liye ${MAX_OTP_ATTEMPTS} baar galat OTP daala gaya (${guard?.name || "Guard"}). Entry cancel ho gayi, naya pre-approval banao.`,
+      referenceId: visitor._id,
+      data: {
+        visitorId: visitor._id,
+        status: "Denied",
+        name: visitor.name,
+        guardName: guard?.name || "Guard",
+        attempts: MAX_OTP_ATTEMPTS,
+      },
+    });
+  } catch (notifyError) {
+    console.error("allowEntry otp-lock notify error:", notifyError);
+  }
+  return true;
 };
 
 // ══════════════════════════════════════════════════════════
@@ -149,8 +201,11 @@ const allowEntry = async (req, res) => {
       .lean();
 
     if (!attempt) {
+      // purani pending request (attempts khatam, par abhi Pending) bhi saaf karo
+      await lockVisitor({ req, guardId, id, buildingCode });
       return res.status(429).json({
         success: false,
+        locked: true,
         message:
           "OTP ke bahut galat attempt ho gaye. Member se naya pre-approval banwao.",
       });
@@ -158,8 +213,14 @@ const allowEntry = async (req, res) => {
 
     if (!otpMatches(attempt.otp, otp)) {
       const left = Math.max(0, MAX_OTP_ATTEMPTS - (attempt.otpAttempts || 0));
+
+      // Aakhri attempt: request cancel + member ko notify
+      const locked = left === 0;
+      if (locked) await lockVisitor({ req, guardId, id, buildingCode });
+
       return res.status(403).json({
         success: false,
+        locked,
         message:
           left > 0
             ? `OTP galat hai. ${left} attempt bache hain.`
