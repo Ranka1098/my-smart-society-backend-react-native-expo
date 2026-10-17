@@ -3,9 +3,17 @@ import Visitor from "../../model/Visitor.js";
 import Member from "../../model/member.js";
 import { notifyStaffToMember } from "../../controller/notifcation/notifyMembers.js";
 
-const METHODS = ["FCM", "ManualCall", "ForcedEntry", "Denied", "NoResponse"];
+const PARCEL = "LeaveWithGuard";
+const METHODS = [
+  "FCM",
+  "ManualCall",
+  "ForcedEntry",
+  "Denied",
+  "NoResponse",
+  PARCEL,
+];
 const APPROVING = ["FCM", "ManualCall", "ForcedEntry"];
-const CANCELLING = ["Denied", "NoResponse"];
+const CANCELLING = ["Denied", "NoResponse", PARCEL];
 const BLOCKED = ["Rejected", "Exited"];
 
 const fail = (res, code, message) =>
@@ -17,11 +25,25 @@ const notifyEntry = async (io, v, method) => {
     .select("_id fcmToken")
     .lean();
 
+  const isParcel = method === PARCEL;
+  const isCab = v.purpose === "Cab";
   const forced = method === "ForcedEntry";
-  const title = forced ? "Force Entry Diya Gaya ⚠️" : "Visitor Entry Verified";
-  const message = forced
-    ? `${v.name} ko bina response ke force entry di gayi.\nReason: ${v.forcedEntryReason}`
-    : `${v.name} ko call par verify karke entry di gayi.`;
+
+  const title = isParcel
+    ? isCab
+      ? "Cab Gate Par Wait Kar Rahi Hai 🚕"
+      : "Parcel Guard Ne Le Liya 📦"
+    : forced
+      ? "Force Entry Diya Gaya ⚠️"
+      : "Visitor Entry Verified";
+
+  const message = isParcel
+    ? isCab
+      ? `${v.name} gate par wait kar rahi hai.`
+      : `${v.name} ka parcel guard ne le liya hai.`
+    : forced
+      ? `${v.name} ko bina response ke force entry di gayi.\nReason: ${v.forcedEntryReason}`
+      : `${v.name} ko call par verify karke entry di gayi.`;
 
   const results = await Promise.allSettled(
     members.map((m) =>
@@ -30,7 +52,7 @@ const notifyEntry = async (io, v, method) => {
         buildingCode: v.buildingCode,
         memberId: m._id,
         memberFcmToken: m.fcmToken,
-        type: "GUEST_APPROVED",
+        type: isParcel ? "GUEST_REJECTED" : "GUEST_APPROVED",
         title,
         message,
         data: { visitorId: String(v._id), status: v.status, method },
@@ -76,7 +98,12 @@ const finalizeEntry = async (req, res) => {
 
     const awaiting = visitor.awaitingGuardConfirm === true;
 
-    if (visitor.status === "Approved" && !awaiting && method !== "Denied") {
+    if (
+      visitor.status === "Approved" &&
+      !awaiting &&
+      method !== "Denied" &&
+      method !== PARCEL
+    ) {
       return fail(res, 409, "Already Approved");
     }
     if (BLOCKED.includes(visitor.status)) {
@@ -106,7 +133,9 @@ const finalizeEntry = async (req, res) => {
           rejectionReason:
             method === "NoResponse"
               ? "Response nahi aaya"
-              : "Guard ne cancel kiya",
+              : method === PARCEL
+                ? "Parcel guard ke paas chhoda"
+                : "Guard ne cancel kiya",
         };
 
     const v = await Visitor.findOneAndUpdate(
@@ -120,7 +149,7 @@ const finalizeEntry = async (req, res) => {
       {
         returnDocument: "after",
         projection:
-          "name buildingCode status notifiedMembers forcedEntryReason",
+          "name purpose buildingCode status notifiedMembers forcedEntryReason",
       },
     ).lean();
 
@@ -130,13 +159,20 @@ const finalizeEntry = async (req, res) => {
     const io = req.app.get("io");
     const cancelled = CANCELLING.includes(method);
 
-    const memberEvent = cancelled
-      ? "visitor_cancelled_by_guard"
-      : "visitor_decided";
+    const memberEvent =
+      method === PARCEL
+        ? "visitor_parcel_left"
+        : cancelled
+          ? "visitor_cancelled_by_guard"
+          : "visitor_decided";
+
     (v.notifiedMembers || []).forEach((memberId) =>
-      io
-        ?.to(`member_${memberId}`)
-        .emit(memberEvent, { visitorId: v._id, status: v.status }),
+      io?.to(`member_${memberId}`).emit(memberEvent, {
+        visitorId: v._id,
+        status: v.status,
+        name: v.name,
+        purpose: v.purpose,
+      }),
     );
 
     if (!cancelled) {
@@ -146,7 +182,11 @@ const finalizeEntry = async (req, res) => {
       });
     }
 
-    if (method === "ManualCall" || method === "ForcedEntry") {
+    if (
+      method === "ManualCall" ||
+      method === "ForcedEntry" ||
+      method === PARCEL
+    ) {
       try {
         await notifyEntry(io, v, method);
       } catch (e) {

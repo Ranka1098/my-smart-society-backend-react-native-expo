@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import Visitor from "../../model/Visitor.js";
 import NotificationModel from "../../model/notification.js";
-
+import Member from "../../model/member.js";
+import { notifyStaffToMember } from "../../controller/notifcation/notifyMembers.js";
 const MAX_REASON_LENGTH = 200;
 
 const memberApproveOrDeny = async (req, res) => {
@@ -28,21 +29,21 @@ const memberApproveOrDeny = async (req, res) => {
       : typeof rejectionReason === "string" && rejectionReason.trim()
         ? rejectionReason.trim().slice(0, MAX_REASON_LENGTH)
         : "Member ne deny kiya";
-const update = isApprove
-  ? {
-      status: "Approved",
-      verificationMethod: "FCM",
-      approvedAt: now,
-      respondedBy: memberId,
-      awaitingGuardConfirm: true,
-    }
-  : {
-      status: "Denied",
-      rejectedAt: now,
-      rejectionReason: reason,
-      respondedBy: memberId,
-      leaveWithGuard: isParcel,
-    };
+    const update = isApprove
+      ? {
+          status: "Approved",
+          verificationMethod: "FCM",
+          approvedAt: now,
+          respondedBy: memberId,
+          awaitingGuardConfirm: true,
+        }
+      : {
+          status: "Denied",
+          rejectedAt: now,
+          rejectionReason: reason,
+          respondedBy: memberId,
+          leaveWithGuard: isParcel,
+        };
 
     // ATOMIC: check + update ek saath. Do members ek saath dabayein to sirf ek jeetega.
     // - status Pending ho
@@ -95,9 +96,12 @@ const update = isApprove
 
     // ── REAL-TIME + DB NOTIFICATION: best-effort ──
     // Decision save ho chuka hai. Yahan fail hone par member ko error nahi dikhna chahiye.
+    // ── REAL-TIME + DB NOTIFICATION: best-effort ──
     try {
       const io = req.app.get("io");
       const parcel = isParcel && ["Delivery", "Cab"].includes(visitor.purpose);
+      const isCab = visitor.purpose === "Cab";
+
       io?.to(`guard_${visitor.buildingCode}`).emit("visitor_decision", {
         visitorId: visitor._id,
         status: visitor.status,
@@ -105,6 +109,7 @@ const update = isApprove
         respondedBy: visitor.respondedBy,
         leaveWithGuard: parcel,
       });
+
       // Baaki notified members ka modal band karo
       (visitor.notifiedMembers ?? []).forEach((mId) => {
         io?.to(`member_${mId}`).emit("visitor_decided", {
@@ -115,26 +120,58 @@ const update = isApprove
       });
 
       const decidedByName = visitor.respondedBy?.fullName || "Member";
-      await NotificationModel.insertMany(
-        (visitor.notifiedMembers ?? []).map((mId) => ({
-          buildingCode: visitor.buildingCode,
-          type: isApprove ? "GUEST_APPROVED" : "GUEST_REJECTED",
-          audience: "SPECIFIC_MEMBER",
-          receiverId: mId,
-          receiverModel: "MEMBER",
-          title: isApprove ? "Guest Approved ✅" : "Guest Denied ❌",
-          message: isApprove
-            ? `${visitor.name} ko ${decidedByName} ne approve kiya.`
-            : parcel
-              ? visitor.purpose === "Cab"
-                ? `${visitor.name} ko ${decidedByName} ne kaha: gate par wait karo.`
-                : `${visitor.name} ko ${decidedByName} ne kaha: parcel guard ke paas chhod do.`
-              : `${visitor.name} ko ${decidedByName} ne deny kiya.`,
-          referenceId: visitor._id,
-          referenceModel: "Visitor",
-          data: { flatNo: visitor.flatNo, purpose: visitor.purpose },
-        })),
+
+      // 3 case: approve / parcel-wait / deny
+      let title, message, type;
+      if (isApprove) {
+        title = "Guest Approved ✅";
+        message = `${visitor.name} ko ${decidedByName} ne approve kiya.`;
+        type = "GUEST_APPROVED";
+      } else if (parcel) {
+        title = isCab
+          ? "Cab Ko Gate Par Wait Karne Diya 🚕"
+          : "Parcel Guard Ke Paas Chhod Do 📦";
+        message = isCab
+          ? `${decidedByName} ne kaha: ${visitor.name} ko gate par wait karne do.`
+          : `${decidedByName} ne kaha: ${visitor.name} ka parcel guard ke paas chhod do.`;
+        type = "GUEST_REJECTED";
+      } else {
+        title = "Guest Denied ❌";
+        message = `${visitor.name} ko ${decidedByName} ne deny kiya.`;
+        type = "GUEST_REJECTED";
+      }
+
+      const members = await Member.find({
+        _id: { $in: visitor.notifiedMembers ?? [] },
+      })
+        .select("_id fcmToken")
+        .lean();
+
+      const results = await Promise.allSettled(
+        members.map((m) =>
+          notifyStaffToMember({
+            io,
+            buildingCode: visitor.buildingCode,
+            memberId: m._id,
+            memberFcmToken: m.fcmToken,
+            type,
+            title,
+            message,
+            data: {
+              visitorId: String(visitor._id),
+              status: visitor.status,
+              flatNo: visitor.flatNo,
+              purpose: visitor.purpose,
+              leaveWithGuard: String(parcel), // FCM data string only
+            },
+            referenceId: visitor._id,
+          }),
+        ),
       );
+      results.forEach((r) => {
+        if (r.status === "rejected")
+          console.error("memberApproveOrDeny notify error:", r.reason);
+      });
     } catch (notifyError) {
       console.error("memberApproveOrDeny notify error:", notifyError);
     }

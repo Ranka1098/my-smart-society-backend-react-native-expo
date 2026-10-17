@@ -16,18 +16,20 @@ const memberPendingVisitor = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: {
-        visitorId: visitor._id,
-        name: visitor.name,
-        purpose: visitor.purpose,
-        photoUrl: visitor.photoUrl,
-        flatNo: visitor.flatNo,
-        ttlSeconds: Math.max(
-          0,
-          Math.floor((visitor.notificationExpiresAt - new Date()) / 1000)
-        ),
-        expiresAt: visitor.notificationExpiresAt,
-      },
+  data: {
+  visitorId: visitor._id,
+  name: visitor.name,
+  purpose: visitor.purpose,
+  subType: visitor.subType || "",
+  photoUrl: visitor.photoUrl,
+  flatNo: visitor.flatNo,
+  memberType: visitor.memberType || "Flat",
+  ttlSeconds: Math.max(
+    0,
+    Math.floor((visitor.notificationExpiresAt - new Date()) / 1000),
+  ),
+  expiresAt: visitor.notificationExpiresAt,
+},
     });
   } catch (error) {
     console.error("memberPendingVisitor error:", error.message);
