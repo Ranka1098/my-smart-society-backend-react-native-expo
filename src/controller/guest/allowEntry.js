@@ -138,14 +138,6 @@ const allowEntry = async (req, res) => {
         .json({ success: false, message: "Already actioned" });
     }
 
-    const visitISO = visitDateToISO(visitor.visitDate);
-    if (visitISO && visitISO !== todayIST()) {
-      return res.status(403).json({
-        success: false,
-        message: `Ye pre-approval ${visitor.visitDate} ke liye hai, aaj ke liye nahi`,
-      });
-    }
-
     // ── OTP ATTEMPT: pehle atomic count, phir compare ──
     // Parallel guesses bhi MAX_OTP_ATTEMPTS se zyada nahi ho sakte.
     const attempt = await Visitor.findOneAndUpdate(

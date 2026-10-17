@@ -17,9 +17,7 @@ const INSIDE_STATUSES = ["Approved", "ForcedEntry"];
 // Member ne pre-approve kiya, visitor abhi aaya nahi
 const PRE_APPROVED_STATUS = "Pending";
 
-// Walk-in = guard ne banayi entry.
-// Member ki pre-approved guest entry (visitDate set / OTP) isme NAHI aati,
-// isliye wo Visitors aur Inside Now count me add nahi hoti.
+// Walk-in = guard ne banayi entry (member ki pre-approved/OTP entry nahi)
 const WALK_IN_FILTER = {
   visitDate: null, // null ya missing dono match
   verificationMethod: { $ne: "OTP" },
@@ -49,6 +47,9 @@ const getDayRange = (dateStr) => ({
 //
 //  Date-wise (selected date):  visitorCount, recentVisitors
 //  Live (date se independent): currentlyInsideCount, preApprovedCount, preApproved
+//
+//  Walk-in      -> createdAt se din ginta hai
+//  Pre-approved -> entryTime se din ginta hai (createdAt = member ne kab banayi)
 // ══════════════════════════════════════════════════════════
 const getGuardDashboard = async (req, res) => {
   try {
@@ -68,33 +69,52 @@ const getGuardDashboard = async (req, res) => {
     }
 
     const code = buildingCode.trim();
-    const dateStr = date || todayIST();
-    const dayRange = getDayRange(dateStr);
+    const dayRange = getDayRange(date || todayIST());
 
     // Live: jab tak entry app me pending hai, date ka matlab nahi
     const preApprovedFilter = {
       buildingCode: code,
-      visitDate: { $ne: null }, // member ne banayi pre-approved entry
+      visitDate: { $ne: null },
       status: PRE_APPROVED_STATUS,
       otpVerifiedAt: null, // field missing bhi match hota hai
     };
 
+    // Us din ki walk-in request YA us din entry hui pre-approved guest
+    const visitedOnDayFilter = {
+      buildingCode: code,
+      $or: [
+        { ...WALK_IN_FILTER, createdAt: dayRange },
+        { entryTime: dayRange, status: { $in: ENTERED_STATUSES } },
+      ],
+    };
+
+    // Us din entry ho chuki (walk-in + pre-approved)
+    const enteredOnDayFilter = {
+      buildingCode: code,
+      status: { $in: ENTERED_STATUSES },
+      $or: [
+        { ...WALK_IN_FILTER, createdAt: dayRange },
+        { entryTime: dayRange },
+      ],
+    };
+
+    // Live: abhi andar (walk-in + pre-approved dono)
+    const insideNowFilter = {
+      buildingCode: code,
+      status: { $in: INSIDE_STATUSES },
+      exitTime: null, // field missing bhi match hota hai
+    };
+
     const [
       visitorCount,
-      preApprovedCount,
-      preApprovedList,
-      recentVisitors,
       currentlyInsideCount,
+      preApprovedCount,
+      preApproved,
+      recentVisitors,
       notices,
     ] = await Promise.all([
-      // Date-wise: us din bani walk-in requests (pre-approved nahi)
-      Visitor.countDocuments({
-        buildingCode: code,
-        ...WALK_IN_FILTER,
-        createdAt: dayRange,
-      }),
-
-      // Live: real count (list sirf LIST_LIMIT hoti hai, count nahi)
+      Visitor.countDocuments(visitedOnDayFilter),
+      Visitor.countDocuments(insideNowFilter),
       Visitor.countDocuments(preApprovedFilter),
 
       Visitor.find(preApprovedFilter)
@@ -103,24 +123,10 @@ const getGuardDashboard = async (req, res) => {
         .limit(LIST_LIMIT)
         .lean(),
 
-      // Date-wise
-      Visitor.find({
-        buildingCode: code,
-        ...WALK_IN_FILTER,
-        status: { $in: ENTERED_STATUSES },
-        createdAt: dayRange,
-      })
-        .sort({ createdAt: -1 })
+      Visitor.find(enteredOnDayFilter)
+        .sort({ entryTime: -1, createdAt: -1 })
         .limit(LIST_LIMIT)
         .lean(),
-
-      // Live: abhi andar kitne hain (date se independent, pre-approved nahi)
-      Visitor.countDocuments({
-        buildingCode: code,
-        ...WALK_IN_FILTER,
-        status: { $in: INSIDE_STATUSES },
-        exitTime: null, // field missing bhi match hota hai
-      }),
 
       Notice.find({ buildingCode: code })
         .sort({ createdAt: -1 })
@@ -131,12 +137,8 @@ const getGuardDashboard = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
-        stats: {
-          visitorCount,
-          currentlyInsideCount,
-          preApprovedCount,
-        },
-        preApproved: preApprovedList,
+        stats: { visitorCount, currentlyInsideCount, preApprovedCount },
+        preApproved,
         recentVisitors,
         notices,
       },

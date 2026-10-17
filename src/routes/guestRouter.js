@@ -10,18 +10,54 @@ import getMemberVisitorHistory from "../controller/guest/getMemberVisitorHistory
 import memberAuth from "../middleware/memberAuth.js";
 import staffAuth from "../middleware/staffAuth.js";
 import checkBuildingSubscription from "../middleware/checkBuildingSubscription.js";
-
+import upload from "../cloudinary/multerConfig.js";
 const guestRouter = express.Router();
 
 // Member routes
-guestRouter.post("/pre-approve", memberAuth, checkBuildingSubscription, createPreApproved);
-guestRouter.get("/pre-approved", memberAuth, checkBuildingSubscription, getMemberPreApproved);
-guestRouter.patch("/pre-approve/:id/cancel", memberAuth, checkBuildingSubscription, cancelPreApproved);
-guestRouter.get("/getMemberVisitorHistory", memberAuth, checkBuildingSubscription, getMemberVisitorHistory);
+guestRouter.post(
+  "/pre-approve",
+  memberAuth,
+  checkBuildingSubscription,
+  createPreApproved,
+);
+guestRouter.get(
+  "/pre-approved",
+  memberAuth,
+  checkBuildingSubscription,
+  getMemberPreApproved,
+);
+guestRouter.patch(
+  "/pre-approve/:id/cancel",
+  memberAuth,
+  checkBuildingSubscription,
+  cancelPreApproved,
+);
+guestRouter.get(
+  "/getMemberVisitorHistory",
+  memberAuth,
+  checkBuildingSubscription,
+  getMemberVisitorHistory,
+);
 
 // Guard routes
-guestRouter.get("/pre-approved/guard", staffAuth, checkBuildingSubscription, getGuardPreApproved);
-guestRouter.patch("/pre-approve/:id/allow", staffAuth, checkBuildingSubscription, allowEntry);
-guestRouter.patch("/pre-approve/:id/deny", staffAuth, checkBuildingSubscription, denyEntry);
+guestRouter.get(
+  "/pre-approved/guard",
+  staffAuth,
+  checkBuildingSubscription,
+  getGuardPreApproved,
+);
+guestRouter.patch(
+  "/pre-approve/:id/allow",
+  staffAuth,
+  checkBuildingSubscription,
+  upload.single("photo"),
+  allowEntry,
+);
+guestRouter.patch(
+  "/pre-approve/:id/deny",
+  staffAuth,
+  checkBuildingSubscription,
+  denyEntry,
+);
 
 export default guestRouter;
