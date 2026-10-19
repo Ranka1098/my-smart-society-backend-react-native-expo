@@ -78,29 +78,34 @@ const lockVisitor = async ({ req, guardId, id, buildingCode }) => {
   ).lean();
   if (!visitor) return false; // kisi aur request ne pehle hi lock kar diya
 
-  try {
-    const io = req.app.get("io");
+try {
+  const io = req.app.get("io");
+  const memberId = visitor.respondedBy || visitor.notifiedMembers?.[0];
 
-    io?.to(`guard_${buildingCode}`).emit("visitor_removed_from_preapproved", {
-      visitorId: visitor._id,
-    });
+  io?.to(`guard_${buildingCode}`).emit("visitor_removed_from_preapproved", {
+    visitorId: visitor._id,
+  });
 
-    if (!visitor.respondedBy) return true;
-    io?.to(`member_${visitor.respondedBy}`).emit("visitor_status_update", {
-      visitorId: visitor._id,
-      status: "Denied",
-    });
+  if (!memberId) {
+    console.warn("lockVisitor: member nahi mila", String(visitor._id));
+    return true;
+  }
 
-    const [guard, member] = await Promise.all([
-      Staff.findById(guardId).select("name").lean(),
-      Member.findById(visitor.respondedBy).select("fcmToken").lean(),
-    ]);
+  io?.to(`member_${memberId}`).emit("visitor_status_update", {
+    visitorId: visitor._id,
+    status: "Denied",
+  });
 
-    await notifyStaffToMember({
-      io,
-      buildingCode,
-      memberId: visitor.respondedBy,
-      memberFcmToken: member?.fcmToken,
+  const [guard, member] = await Promise.all([
+    Staff.findById(guardId).select("name").lean(),
+    Member.findById(memberId).select("fcmToken").lean(),
+  ]);
+
+   await notifyStaffToMember({
+    io,
+    buildingCode,
+    memberId,
+    memberFcmToken: member?.fcmToken,
       type: "GUEST_OTP_FAILED",
       title: "Guest OTP galat ⚠️",
       message: `${visitor.name} ke liye ${MAX_OTP_ATTEMPTS} baar galat OTP daala gaya (${guard?.name || "Guard"}). Entry cancel ho gayi, naya pre-approval banao.`,

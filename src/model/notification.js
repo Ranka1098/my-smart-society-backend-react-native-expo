@@ -49,6 +49,7 @@ const notificationSchema = new mongoose.Schema(
         "FAMILY_MEMBER_APPROVED", // ✅ NAYA
         "FAMILY_MEMBER_REJECTED",
         "VENDOR_ADDED",
+        "GUEST_OTP_FAILED",
       ],
       required: true,
     },
@@ -94,7 +95,7 @@ const notificationSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 notificationSchema.index({ buildingCode: 1, createdAt: -1 });
