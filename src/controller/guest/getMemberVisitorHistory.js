@@ -1,8 +1,11 @@
 import Visitor from "../../model/Visitor.js";
 
+const LIMIT = 20;
+
 const getMemberVisitorHistory = async (req, res) => {
   try {
-    const { buildingCode, flatNo, memberType } = req.query;
+    const { buildingCode, flatNo, memberType, status } = req.query;
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
 
     if (!buildingCode || !flatNo) {
       return res
@@ -10,27 +13,34 @@ const getMemberVisitorHistory = async (req, res) => {
         .json({ success: false, message: "buildingCode aur flatNo required" });
     }
 
-    const list = await Visitor.find({
+    const filter = {
       buildingCode,
       flatNo,
-      ...(memberType === "Shop"
-        ? { memberType: "Shop" }
-        : {
-            $or: [
-              { memberType: "Flat" },
-              { memberType: { $exists: false } },
-              { memberType: null },
-            ],
-          }), // ✅ FIX — purane records (missing memberType) bhi match ho, sab purpose/type ke liye
-    })
-      .sort({ entryTime: -1, createdAt: -1 })
-      .limit(100)
-      .populate("guardId", "name")
-      .populate("respondedBy", "fullName");
+      // Flat = Flat + missing + null (purane records)
+      memberType: memberType === "Shop" ? "Shop" : { $ne: "Shop" },
+      ...(status && status !== "All" ? { status } : {}),
+    };
 
-    return res
-      .status(200)
-      .json({ success: true, count: list.length, data: list });
+    const [list, total] = await Promise.all([
+      Visitor.find(filter)
+        .sort({ entryTime: -1, createdAt: -1 })
+        .skip((page - 1) * LIMIT)
+        .limit(LIMIT)
+        .select(
+          "name mobile purpose subType vehicleNo vehicleType status photoUrl exitPhotoUrl entryTime exitTime createdAt approvedAt rejectedAt rejectionReason forcedEntryReason verificationMethod isEmergencyExit guardId respondedBy",
+        )
+        .populate("guardId", "name")
+        .populate("respondedBy", "fullName")
+        .lean(),
+      Visitor.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      total,
+      hasMore: page * LIMIT < total,
+      data: list,
+    });
   } catch (e) {
     console.error("getMemberVisitorHistory error:", e);
     res.status(500).json({ success: false, message: "Server error" });

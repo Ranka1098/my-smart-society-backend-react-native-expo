@@ -2,9 +2,8 @@ import Visitor from "../../model/Visitor.js";
 import Member from "../../model/member.js";
 import { sendFCM } from "../notifcation/sendFcmNotification.js";
 import sharp from "sharp";
-import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
 import NotificationModel from "../../model/notification.js";
-
+import uploadToCloudinary, { THUMB, thumbOf } from "../../cloudinary/uploadToCloudinary.js";
 const NOTIFICATION_TTL = 120;
 const MEMBER_TYPES = ["Flat", "Shop"];
 const PURPOSES = ["Guest", "Delivery", "Cab", "Service", "Other"];
@@ -117,8 +116,11 @@ const createVisitorPendingRequest = async (req, res) => {
         .resize({ width: 1200, withoutEnlargement: true })
         .jpeg({ quality: 70 })
         .toBuffer();
-      photoUrl = (await uploadToCloudinary(compressed, "visitorPhotos"))
-        .secure_url;
+      // eager = thumb upload ke saath hi ban jaata hai (sync)
+      const up = await uploadToCloudinary(compressed, "visitorPhotos", {
+        eager: [THUMB],
+      });
+      photoUrl = up.secure_url;
     } catch (e) {
       console.error("createVisitorPendingRequest photo error:", e);
       return res.status(502).json({
@@ -142,7 +144,7 @@ const createVisitorPendingRequest = async (req, res) => {
       }
       return false;
     };
-    await waitForImage(photoUrl);
+    await waitForImage(thumbOf(photoUrl), 4);
 
     const visitor = await Visitor.create({
       buildingCode: code,

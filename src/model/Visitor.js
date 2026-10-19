@@ -85,6 +85,11 @@ const visitorSchema = new mongoose.Schema(
 visitorSchema.index({ buildingCode: 1, createdAt: -1 });
 visitorSchema.index({ buildingCode: 1, flatNo: 1 });
 visitorSchema.index({ buildingCode: 1, status: 1 });
-
+visitorSchema.index({
+  buildingCode: 1,
+  flatNo: 1,
+  entryTime: -1,
+  createdAt: -1,
+});
 export default mongoose.models.Visitor ||
   mongoose.model("Visitor", visitorSchema);
