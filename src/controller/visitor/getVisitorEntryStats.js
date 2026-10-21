@@ -18,12 +18,16 @@ const getVisitorEntryStats = async (req, res) => {
     if (!buildingCode) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-
+    const guardId = req.staff?._id;
+    if (!buildingCode || !guardId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
     const now = new Date();
     const [row] = await Visitor.aggregate([
       {
         $match: {
           buildingCode,
+          guardId,
           notificationSentAt: { $ne: null }, // sirf guard ki walk-in requests
           createdAt: todayRange(),
         },

@@ -3,7 +3,7 @@ import sharp from "sharp";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
 import memberModel from "../../model/member.js";
 import { notifyWorkerToMembers } from "../../controller/notifcation/notifyMembers.js";
-
+import { emitGuardSync } from "../../utils/guardSync.js";
 const emergencyExit = async (req, res) => {
   try {
     const { buildingCode, flatNo, memberType } = req.body; // ✅ FIX — memberType accept karo
@@ -29,7 +29,7 @@ const emergencyExit = async (req, res) => {
         .toBuffer();
       const uploaded = await uploadToCloudinary(
         compressed,
-        "visitorExitPhotos"
+        "visitorExitPhotos",
       );
       exitPhotoUrl = uploaded.secure_url;
     }
@@ -56,7 +56,10 @@ const emergencyExit = async (req, res) => {
       entryTime: now,
       exitTime: now,
     });
-
+    emitGuardSync(req, buildingCode, {
+      action: "EXIT",
+      visitorId: visitor._id,
+    });
     // ══════════════════════════════════════════════
     // FLAT/SHOP MEMBERS KO NOTIFY KARO
     // ══════════════════════════════════════════════

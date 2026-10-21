@@ -3,19 +3,26 @@ import Visitor from "../../model/Visitor.js";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const LIMIT = 100;
 
-// query value sirf non-empty string ho (object/array se NoSQL injection na ho)
 const str = (v) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
 const getVisitorLog = async (req, res) => {
   try {
-    // JWT wali building. Query ki buildingCode par bharosa nahi.
     const buildingCode = req.staff?.buildingCode ?? req.buildingCode;
-    if (!buildingCode) {
+    const guardId = req.staff?._id;
+    if (!buildingCode || !guardId) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const { date, status, flatNo, memberType, confirmed } = req.query;
     const filter = { buildingCode };
+
+    // CurrentlyInside (confirmed=true): sab guards ki entries.
+    // VisitorHistory: sirf apni entries.
+    if (confirmed === "true") {
+      filter.awaitingGuardConfirm = { $ne: true };
+    } else {
+      filter.guardId = guardId;
+    }
 
     const s = str(status);
     const f = str(flatNo);
@@ -23,9 +30,6 @@ const getVisitorLog = async (req, res) => {
     if (s) filter.status = s;
     if (f) filter.flatNo = f;
     if (m) filter.memberType = m;
-
-    // member approve kar chuka par guard ne abhi confirm nahi kiya, wo andar nahi hai
-    if (confirmed === "true") filter.awaitingGuardConfirm = { $ne: true };
 
     const d = str(date);
     if (d) {
@@ -44,7 +48,7 @@ const getVisitorLog = async (req, res) => {
       .limit(LIMIT)
       .populate("notifiedMembers", "fullName primaryPhone")
       .populate("respondedBy", "fullName")
-      .populate("guardId", "name")
+      .populate("guardId", "workerName")
       .lean();
 
     return res

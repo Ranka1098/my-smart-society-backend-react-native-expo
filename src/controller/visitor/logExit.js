@@ -6,7 +6,7 @@ import {
   notifyWorkerToAdmin,
   notifyStaffToMember,
 } from "../../controller/notifcation/notifyMembers.js";
-
+import { emitGuardSync } from "../../utils/guardSync.js";
 // Sirf wahi exit ho sakta hai jo abhi andar hai
 const EXITABLE_STATUSES = ["Approved", "ForcedEntry"];
 
@@ -146,7 +146,7 @@ const logExit = async (req, res) => {
         exitTime: null,
       },
       { $set: { status: "Exited", exitTime: new Date() } },
-     { returnDocument: "after" },
+      { returnDocument: "after" },
     );
 
     if (!visitor) {
@@ -162,7 +162,10 @@ const logExit = async (req, res) => {
     io?.to(`guard_${visitor.buildingCode}`).emit("visitor_exited", {
       visitorId: visitor._id,
     });
-
+    emitGuardSync(req, visitor.buildingCode, {
+      action: "EXIT",
+      visitorId: visitor._id,
+    });
     // Exit save ho chuka hai. Notification fail ho to bhi success return karo.
     try {
       if (io) await notifyExit(io, visitor);

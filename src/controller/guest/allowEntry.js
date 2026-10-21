@@ -6,7 +6,7 @@ import Staff from "../../model/staff.js";
 import Member from "../../model/member.js";
 import uploadToCloudinary from "../../cloudinary/uploadToCloudinary.js";
 import { notifyStaffToMember } from "../notifcation/notifyMembers.js";
-
+import { emitGuardSync } from "../../utils/guardSync.js";
 // ══════════════════════════════════════════════════════════
 // CONFIG + HELPERS
 // ══════════════════════════════════════════════════════════
@@ -77,7 +77,7 @@ const lockVisitor = async ({ req, guardId, id, buildingCode }) => {
     { returnDocument: "after" },
   ).lean();
   if (!visitor) return false; // kisi aur request ne pehle hi lock kar diya
-
+emitGuardSync(req, buildingCode, { action: "DENY", visitorId: visitor._id });
 try {
   const io = req.app.get("io");
   const memberId = visitor.respondedBy || visitor.notifiedMembers?.[0];
@@ -277,7 +277,7 @@ const allowEntry = async (req, res) => {
         .status(409)
         .json({ success: false, message: "Already actioned" });
     }
-
+emitGuardSync(req, updated.buildingCode, { action: "ALLOW", visitorId: updated._id });
     // ── REAL-TIME + PUSH: best-effort ──
     // Entry save ho chuki hai. Notification fail ho to bhi guard ko success milna chahiye.
     try {

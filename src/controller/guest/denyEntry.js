@@ -2,7 +2,7 @@ import Visitor from "../../model/Visitor.js";
 import Staff from "../../model/staff.js";
 import Member from "../../model/member.js";
 import { notifyStaffToMember } from "../notifcation/notifyMembers.js";
-
+import { emitGuardSync } from "../../utils/guardSync.js";
 const denyEntry = async (req, res) => {
   try {
     const { id } = req.params;
@@ -22,10 +22,13 @@ const denyEntry = async (req, res) => {
     visitor.rejectedAt = new Date();
     visitor.rejectionReason = reason || "Guard ne verify nahi kiya";
     await visitor.save();
-
+    emitGuardSync(req, visitor.buildingCode, {
+      action: "DENY",
+      visitorId: visitor._id,
+    });
     const guard = await Staff.findById(guardId).select("name");
     const member = await Member.findById(visitor.respondedBy).select(
-      "fcmToken"
+      "fcmToken",
     );
 
     const io = req.app.get("io");
@@ -35,7 +38,7 @@ const denyEntry = async (req, res) => {
       "visitor_removed_from_preapproved",
       {
         visitorId: visitor._id,
-      }
+      },
     );
 
     // ✅ SOCKET: member ko turant batao guest deny ho gaya — GuestList se pending hata do
@@ -55,7 +58,7 @@ const denyEntry = async (req, res) => {
         guard?.name || "Guard"
       } ne entry deny kar di (${new Date(visitor.rejectedAt).toLocaleTimeString(
         "en-IN",
-        { hour: "2-digit", minute: "2-digit" }
+        { hour: "2-digit", minute: "2-digit" },
       )})`,
       referenceId: visitor._id,
       data: {

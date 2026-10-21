@@ -1,9 +1,14 @@
+import mongoose from "mongoose";
 import Visitor from "../../model/Visitor.js";
 import Member from "../../model/member.js";
 import { sendFCM } from "../notifcation/sendFcmNotification.js";
 import sharp from "sharp";
 import NotificationModel from "../../model/notification.js";
-import uploadToCloudinary, { THUMB, thumbOf } from "../../cloudinary/uploadToCloudinary.js";
+import { emitGuardSync } from "../../utils/guardSync.js";
+import uploadToCloudinary, {
+  THUMB,
+  thumbOf,
+} from "../../cloudinary/uploadToCloudinary.js";
 const NOTIFICATION_TTL = 120;
 const MEMBER_TYPES = ["Flat", "Shop"];
 const PURPOSES = ["Guest", "Delivery", "Cab", "Service", "Other"];
@@ -23,7 +28,64 @@ const RULES = {
 const isStr = (v) => typeof v === "string" && v.trim().length > 0;
 const str = (v) => (typeof v === "string" ? v.trim() : "");
 
+// ── ATOMIC UNIT LOCK ──
+// Do guard ek saath bhejein to check-then-create race se dono pass ho jate the.
+// Yahan Mongo khud ek hi guard ko lock deta hai (_id unique). Multi-server me bhi safe.
+const LOCK_MS = 30 * 1000; // crash hone par bhi 30 sec baad khud khul jata hai
+const UnitLock =
+  mongoose.models.VisitorUnitLock ||
+  mongoose.model(
+    "VisitorUnitLock",
+    new mongoose.Schema({
+      _id: String,
+      lockedUntil: Date,
+      guardName: String,
+    }),
+  );
+
+const acquireUnitLock = async (key, guardName) => {
+  const now = new Date();
+  try {
+    // filter match = lock free/expired. Locked ho to upsert insert try karta hai
+    // aur same _id par E11000 aata hai = koi aur guard ke paas lock hai.
+    await UnitLock.findOneAndUpdate(
+      { _id: key, lockedUntil: { $lte: now } },
+      { $set: { lockedUntil: new Date(now.getTime() + LOCK_MS), guardName } },
+      { upsert: true },
+    );
+    return { ok: true };
+  } catch (e) {
+    if (e?.code === 11000) {
+      const cur = await UnitLock.findById(key).select("guardName").lean();
+      return { ok: false, guardName: cur?.guardName };
+    }
+    throw e;
+  }
+};
+
+
+
+const releaseUnitLock = (key) =>
+  UnitLock.updateOne(
+    { _id: key },
+    { $set: { lockedUntil: new Date(0) } },
+  ).catch((e) => console.error("releaseUnitLock error:", e));
+
+const findPendingForUnit = (code, unit, type) =>
+  Visitor.findOne({
+    buildingCode: code,
+    flatNo: unit,
+    memberType: type,
+    status: "Pending",
+    verificationMethod: { $ne: "OTP" },
+    notificationExpiresAt: { $gt: new Date() },
+  })
+    .sort({ createdAt: -1 })
+    .select("name guardName")
+    .lean();
+
 const createVisitorPendingRequest = async (req, res) => {
+  let lockKey = null;
   try {
     const guardId = req.staff._id;
     const guardName = req.staff.workerName || "Guard";
@@ -108,6 +170,33 @@ const createVisitorPendingRequest = async (req, res) => {
         message: `${type === "Shop" ? "Shop" : "Flat"} ${unit} me koi member nahi mila`,
       });
     }
+    const unitLabelTxt = `${type === "Shop" ? "Shop" : "Flat"} ${unit}`;
+
+    // 1) ATOMIC LOCK: ek waqt me sirf ek guard is flat/shop par request bana sakta hai
+    const key = `${code}:${type}:${unit}`;
+    const lock = await acquireUnitLock(key, guardName);
+    if (!lock.ok) {
+      return res.status(409).json({
+        success: false,
+        duplicate: true,
+        message: `${unitLabelTxt} par ${
+          lock.guardName || "dusra guard"
+        } abhi request bhej raha hai. Visitor ko thodi der wait karne ko kaho.`,
+      });
+    }
+    lockKey = key;
+
+    // 2) Pehle se member ke paas pending request?
+    const existing = await findPendingForUnit(code, unit, type);
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        duplicate: true,
+        message: `${unitLabelTxt} ke member ke paas ${
+          existing.guardName || "dusre guard"
+        } ki ${existing.name} wali request pehle se gayi hai. Visitor ko thodi der wait karne ko kaho.`,
+      });
+    }
 
     // ── PHOTO ──
     let photoUrl;
@@ -166,6 +255,32 @@ const createVisitorPendingRequest = async (req, res) => {
       entryTime: now,
     });
 
+        // TIE-BREAK: race me dono create ho gaye ho to chhoti _id wala jeetega
+    const winner = await Visitor.findOne({
+      buildingCode: code,
+      flatNo: unit,
+      memberType: type,
+      status: "Pending",
+      verificationMethod: { $ne: "OTP" },
+      notificationExpiresAt: { $gt: new Date() },
+      _id: { $lt: visitor._id },
+    })
+      .select("name guardName")
+      .lean();
+    if (winner) {
+      await Visitor.deleteOne({ _id: visitor._id });
+      return res.status(409).json({
+        success: false,
+        duplicate: true,
+        message: `${unitLabelTxt} ke member ke paas ${
+          winner.guardName || "dusre guard"
+        } ki ${winner.name} wali request pehle se gayi hai. Visitor ko thodi der wait karne ko kaho.`,
+      });
+    }
+    // Visitor "Pending" ban gaya: ab wahi block karega, lock chhod do
+    await releaseUnitLock(lockKey);
+    lockKey = null;
+    emitGuardSync(req, code, { action: "CREATE", visitorId: visitor._id });
     // ══════════════════════════════════════════════
     // NOTIFICATIONS: best-effort, har channel alag
     // ══════════════════════════════════════════════
@@ -204,7 +319,7 @@ const createVisitorPendingRequest = async (req, res) => {
     try {
       const tokens = members.map((m) => m.fcmToken).filter(Boolean);
       if (tokens.length > 0) {
-       const r = await sendFCM(
+        const r = await sendFCM(
           tokens,
           "Visitor at Gate 🔔",
           `${visitorName} (${label})${vehicleTxt} aaya hai. Approve ya Deny karo.`,
@@ -289,6 +404,9 @@ const createVisitorPendingRequest = async (req, res) => {
     }
     console.error("createVisitorPendingRequest error:", error);
     return res.status(500).json({ success: false, message: "Server error" });
+  } finally {
+    // koi bhi early return/error ho, lock nahi atakna chahiye
+    if (lockKey) await releaseUnitLock(lockKey);
   }
 };
 

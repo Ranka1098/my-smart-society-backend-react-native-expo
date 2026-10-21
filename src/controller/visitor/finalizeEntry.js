@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Visitor from "../../model/Visitor.js";
 import Member from "../../model/member.js";
 import { notifyStaffToMember } from "../../controller/notifcation/notifyMembers.js";
-
+import { emitGuardSync } from "../../utils/guardSync.js";
 const PARCEL = "LeaveWithGuard";
 const METHODS = [
   "FCM",
@@ -158,7 +158,10 @@ const finalizeEntry = async (req, res) => {
     // ── REAL-TIME + PUSH: best-effort (entry save ho chuki hai) ──
     const io = req.app.get("io");
     const cancelled = CANCELLING.includes(method);
-
+    emitGuardSync(req, v.buildingCode, {
+      action: method === "ForcedEntry" ? "FORCE" : cancelled ? "DENY" : "ENTRY",
+      visitorId: v._id,
+    });
     const memberEvent =
       method === PARCEL
         ? "visitor_parcel_left"

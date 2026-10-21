@@ -1,32 +1,29 @@
 import Visitor from "../../model/Visitor.js";
 import Member from "../../model/member.js";
 
-// Isse purani Pending entries guard ko dobara restore nahi hongi
-const MAX_PENDING_AGE_MS = 30 * 60 * 1000; // 24h se 30 min
+const MAX_PENDING_AGE_MS = 30 * 60 * 1000;
 
 const getPendingVisitorsForGuard = async (req, res) => {
   try {
-    const buildingCode = req.buildingCode;
-    if (!buildingCode) {
+    const buildingCode = req.staff?.buildingCode || req.buildingCode;
+    const guardId = req.staff?._id;
+    if (!buildingCode || !guardId) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    // Expired (notificationExpiresAt beet chuki) entries bhi aati hain.
-    // Guard ko "no response" stage me call/force karna hota hai.
+
     const visitors = await Visitor.find({
       buildingCode,
+      guardId, // sirf apni entries
       status: "Pending",
-      // Member ki pre-approved (OTP) entry walk-in nahi hai.
-      // Uska notificationExpiresAt hota hi nahi, timer NaN ban jata tha.
       verificationMethod: { $ne: "OTP" },
       createdAt: { $gte: new Date(Date.now() - MAX_PENDING_AGE_MS) },
     })
       .select(
-        "name purpose subType vehicleNo photoUrl flatNo memberType notificationExpiresAt notifiedMembers createdAt",
+        "name purpose subType vehicleNo photoUrl flatNo memberType notificationExpiresAt notifiedMembers createdAt guardId",
       )
       .sort({ createdAt: -1 })
       .lean();
 
-    // Har visitor ke notifiedMembers ki actual member details
     const memberIds = [
       ...new Set(
         visitors.flatMap((v) => (v.notifiedMembers ?? []).map(String)),
@@ -55,6 +52,7 @@ const getPendingVisitorsForGuard = async (req, res) => {
       subType: v.subType,
       vehicleNo: v.vehicleNo,
       createdAt: v.createdAt,
+      guardId: v.guardId,
     }));
 
     return res.json({ success: true, visitors: result });
