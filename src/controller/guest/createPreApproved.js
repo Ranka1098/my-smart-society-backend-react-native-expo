@@ -3,7 +3,6 @@ import Visitor from "../../model/Visitor.js";
 import Member from "../../model/member.js";
 import { notifyMemberToStaff } from "../notifcation/notifyMembers.js";
 
-const MEMBER_TYPES = ["Flat", "Shop"];
 const MOBILE_RE = /^\d{10}$/;
 
 const isStr = (v) => typeof v === "string" && v.trim().length > 0;
@@ -13,14 +12,9 @@ const generateOtp = () => crypto.randomInt(1000, 10000).toString();
 
 const createPreApproved = async (req, res) => {
   try {
-    // NOTE: buildingCode / memberId ideally token (req.user) se lo, body se nahi.
-    // Body se lene par koi bhi kisi bhi building ke liye pre-approve bana sakta hai.
+    // Member, building, flat sab token (memberAuth) se. Body se sirf visitor detail.
     const {
-      buildingCode,
-      buildingId,
-      memberId,
-      flatNo,
-      memberType,
+      buildingId: bodyBuildingId,
       name,
       mobile,
       purpose,
@@ -28,23 +22,23 @@ const createPreApproved = async (req, res) => {
       timeSlot,
     } = req.body;
 
+    const memberId = req.member?._id;
+    const buildingCode = req.member?.buildingCode;
+    const flatNo = req.member?.unitNo;
+    const memberType = req.member?.memberType === "Shop" ? "Shop" : "Flat";
+    const buildingId = req.member?.buildingId ?? bodyBuildingId;
+
+    if (!memberId || !buildingCode || !flatNo) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
     // ── VALIDATION (string check = NoSQL injection se bachav bhi) ──
-    if (
-      ![buildingCode, memberId, flatNo, name, purpose, visitDate].every(isStr)
-    ) {
+    if (![name, purpose, visitDate].every(isStr)) {
       return res.status(400).json({
         success: false,
-        message:
-          "buildingCode, memberId, flatNo, name, purpose, visitDate required",
+        message: "name, purpose, visitDate required",
       });
     }
-
-    if (memberType !== undefined && !MEMBER_TYPES.includes(memberType)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "memberType must be Flat or Shop" });
-    }
-
     if (isStr(mobile) && !MOBILE_RE.test(mobile.trim())) {
       return res
         .status(400)
@@ -53,9 +47,9 @@ const createPreApproved = async (req, res) => {
 
     // ── CREATE ──
     const visitor = await Visitor.create({
-      buildingCode: buildingCode.trim(),
-      flatNo: flatNo.trim(),
-      memberType: memberType || "Flat",
+      buildingCode,
+      flatNo,
+      memberType,
       name: name.trim(),
       mobile: isStr(mobile) ? mobile.trim() : undefined,
       purpose,
@@ -68,7 +62,7 @@ const createPreApproved = async (req, res) => {
       otp: generateOtp(),
     });
 
-    // ── MEMBER NAME (Member model me fullName hai, name nahi) ──
+    // ── MEMBER NAME (Member model me fullName hai) ──
     let memberName = "Member";
     try {
       const member = await Member.findById(memberId)

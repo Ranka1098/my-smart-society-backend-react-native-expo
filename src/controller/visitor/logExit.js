@@ -127,7 +127,7 @@ const logExit = async (req, res) => {
   try {
     const { id } = req.params;
     const buildingCode = req.staff?.buildingCode ?? req.buildingCode;
-
+const exitGuardId = req.staff?._id;
     if (!buildingCode) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
@@ -138,17 +138,22 @@ const logExit = async (req, res) => {
     }
 
     // ATOMIC: sirf apni building ka, abhi andar wala visitor. Dobara exit nahi hoga.
-    const visitor = await Visitor.findOneAndUpdate(
-      {
-        _id: id,
-        buildingCode,
-        status: { $in: EXITABLE_STATUSES },
-        exitTime: null,
-      },
-      { $set: { status: "Exited", exitTime: new Date() } },
-      { returnDocument: "after" },
-    );
-
+const visitor = await Visitor.findOneAndUpdate(
+  {
+    _id: id,
+    buildingCode,
+    status: { $in: EXITABLE_STATUSES },
+    exitTime: null,
+  },
+  {
+    $set: {
+      status: "Exited",
+      exitTime: new Date(),
+      ...(exitGuardId && { exitGuardId }),
+    },
+  },
+  { returnDocument: "after" },
+);
     if (!visitor) {
       return res.status(404).json({
         success: false,

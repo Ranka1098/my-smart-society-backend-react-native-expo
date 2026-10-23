@@ -70,17 +70,25 @@ visitorRouter.get(
   checkBuildingSubscription,
   memberPendingVisitor,
 );
-visitorRouter.post("/staff/checkVisitorStatus", staffAuth, checkVisitorStatus);
+visitorRouter.post(
+  "/staff/checkVisitorStatus",
+  staffAuth,
+  checkBuildingSubscription,
+  checkVisitorStatus,
+);
 
 visitorRouter.get(
   "/staff/pendingVisitors",
   staffAuth,
+  checkBuildingSubscription,
   getPendingVisitorsForGuard,
 );
 
-
-
-
-visitorRouter.get("/staff/visitorEntryStats", staffAuth, getVisitorEntryStats);
+visitorRouter.get(
+  "/staff/visitorEntryStats",
+  staffAuth,
+  checkBuildingSubscription,
+  getVisitorEntryStats,
+);
 
 export default visitorRouter;

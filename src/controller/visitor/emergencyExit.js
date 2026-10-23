@@ -49,6 +49,7 @@ const emergencyExit = async (req, res) => {
       flatNo,
       memberType: memberType === "Shop" ? "Shop" : "Flat", // ✅ FIX — store karo
       guardId,
+       exitGuardId: guardId,
       status: "Exited",
       verificationMethod: "ForcedEntry",
       isEmergencyExit: true,

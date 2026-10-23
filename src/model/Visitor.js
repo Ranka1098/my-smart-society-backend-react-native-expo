@@ -37,6 +37,7 @@ const visitorSchema = new mongoose.Schema(
     notifiedMembers: [{ type: ObjectId, ref: "Member" }],
     respondedBy: { type: ObjectId, ref: "Member" },
     guardId: { type: ObjectId, ref: "Staff" },
+    exitGuardId: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },
     status: {
       type: String,
       enum: [
@@ -60,6 +61,7 @@ const visitorSchema = new mongoose.Schema(
         "ForcedEntry",
         "Denied",
         "NoResponse", // ← yahan
+        "LeaveWithGuard",
         "OTP",
         "PreApprovedWorker",
       ],

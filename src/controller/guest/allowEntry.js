@@ -97,7 +97,7 @@ try {
   });
 
   const [guard, member] = await Promise.all([
-    Staff.findById(guardId).select("name").lean(),
+    Staff.findById(guardId).select("workerName").lean(),
     Member.findById(memberId).select("fcmToken").lean(),
   ]);
 
@@ -108,13 +108,13 @@ try {
     memberFcmToken: member?.fcmToken,
       type: "GUEST_OTP_FAILED",
       title: "Guest OTP galat ⚠️",
-      message: `${visitor.name} ke liye ${MAX_OTP_ATTEMPTS} baar galat OTP daala gaya (${guard?.name || "Guard"}). Entry cancel ho gayi, naya pre-approval banao.`,
+      message: `${visitor.name} ke liye ${MAX_OTP_ATTEMPTS} baar galat OTP daala gaya (${guard?.workerName || "Guard"}). Entry cancel ho gayi, naya pre-approval banao.`,
       referenceId: visitor._id,
       data: {
         visitorId: visitor._id,
         status: "Denied",
         name: visitor.name,
-        guardName: guard?.name || "Guard",
+        guardName: guard?.workerName || "Guard",
         attempts: MAX_OTP_ATTEMPTS,
       },
     });
@@ -285,7 +285,7 @@ emitGuardSync(req, updated.buildingCode, { action: "ALLOW", visitorId: updated._
       const guardRoom = `guard_${updated.buildingCode}`;
 
       const [guard, member] = await Promise.all([
-        Staff.findById(guardId).select("name").lean(),
+        Staff.findById(guardId).select("workerName").lean(),
         Member.findById(updated.respondedBy).select("fcmToken").lean(),
       ]);
 
@@ -306,13 +306,13 @@ emitGuardSync(req, updated.buildingCode, { action: "ALLOW", visitorId: updated._
         memberFcmToken: member?.fcmToken,
         type: "GUEST_APPROVED",
         title: "Guest Entry Approved ✅",
-        message: `${updated.name} ko ${guard?.name || "Guard"} ne entry de di`,
+        message: `${updated.name} ko ${guard?.workerName || "Guard"} ne entry de di`,
         referenceId: updated._id,
         data: {
           visitorId: updated._id,
           status: "Approved",
           approvedAt: updated.approvedAt,
-          guardName: guard?.name || "Guard",
+          guardName: guard?.workerName || "Guard",
           name: updated.name,
           purpose: updated.purpose,
           vehicleType: updated.vehicleType || "None",
