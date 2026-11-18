@@ -30,7 +30,9 @@ const maintenanceMonthSchema = new mongoose.Schema(
       required: [true, "Total shop expense is required"],
       min: [0, "Total shop expense cannot be negative"],
     },
-
+    totalOtherExpense: { type: Number, min: 0, default: 0 },
+    totalOthers: { type: Number, min: 0, default: 0 },
+    totalExtras: { type: Number, min: 0, default: 0 },
     perFlat: {
       type: Number,
       min: [0, "Per flat amount cannot be negative"],
@@ -61,7 +63,7 @@ const maintenanceMonthSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Ensure unique entry per building and month

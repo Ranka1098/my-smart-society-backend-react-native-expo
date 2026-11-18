@@ -18,10 +18,10 @@ const getPendingMaintenance = async (req, res) => {
 
     if (!member) return res.status(404).json({ message: "Member not found" });
 
-    const pendingBills = await maintenanceModel
-      .find({ memberId: member._id, buildingCode, status: "Pending" })
-      .sort({ month: 1 })
-      .select("_id month amount");
+   const pendingBills = await maintenanceModel
+  .find({ memberId: member._id, buildingCode, status: "Pending" })
+  .sort({ month: 1 })
+  .select("_id month amount extras");
 
     const memberName =
       member.memberStatus === "Rent"

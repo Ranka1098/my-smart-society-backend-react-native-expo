@@ -12,11 +12,25 @@ const getMemberName = (member) => {
   return member.ownerName || member.fullName || "—";
 };
 
+// extras ko clean karo: [{label, amount}] sirf valid wale
+const cleanExtras = (extras) =>
+  (Array.isArray(extras) ? extras : [])
+    .map((e) => ({
+      label: String(e?.label || "").trim(),
+      amount: Number(e?.amount),
+    }))
+    .filter((e) => e.label && e.amount > 0);
+
+const sumExtras = (extras) => extras.reduce((s, e) => s + e.amount, 0);
+
+const groupOf = (type) =>
+  type === "Flat" ? "Flat" : type === "Shop" ? "Shop" : "Other";
+
 const createMaintenance = async (req, res) => {
   try {
     const buildingCode = req.buildingCode;
     const adminId = req.adminId;
-    const { month, flats = [], shops = [] } = req.body;
+    const { month, flats = [], shops = [], others = [] } = req.body;
 
     if (!buildingCode || !adminId) {
       return res
@@ -47,9 +61,12 @@ const createMaintenance = async (req, res) => {
       });
     }
 
-    const validFlats = flats.filter((item) => Number(item.amount) > 0);
-    const validShops = shops.filter((item) => Number(item.amount) > 0);
-    const allMembersPayload = [...validFlats, ...validShops];
+    const valid = (list) => list.filter((item) => Number(item.amount) > 0);
+    const allMembersPayload = [
+      ...valid(flats),
+      ...valid(shops),
+      ...valid(others),
+    ];
 
     if (!allMembersPayload.length) {
       return res
@@ -57,7 +74,7 @@ const createMaintenance = async (req, res) => {
         .json({ success: false, message: "No valid maintenance amount found" });
     }
 
-    // duplicate memberId guard (flats + shops dono me same id na aaye)
+    // duplicate memberId guard
     const seenMemberIds = new Set();
     const dedupedPayload = allMembersPayload.filter((item) => {
       const id = item.memberId.toString();
@@ -71,7 +88,7 @@ const createMaintenance = async (req, res) => {
 
     const memberIds = dedupedPayload.map((item) => item.memberId);
 
-    // ✅ sirf primary member fetch karo — family members ko bill/notif nahi jana chahiye
+    // sirf primary member — family members ko bill/notif nahi jana chahiye
     const members = await Member.find({
       _id: { $in: memberIds },
       buildingCode,
@@ -94,12 +111,17 @@ const createMaintenance = async (req, res) => {
     for (const item of dedupedPayload) {
       const member = memberMap[item.memberId.toString()];
       if (!member) continue; // family member ya unapproved skip
+
+      const extras = cleanExtras(item.extras);
+      const amount = Number(item.amount); // base + extras (frontend se total aata hai)
+
       maintenanceDocs.push({
         buildingCode,
         buildingId: building._id,
         memberId: member._id,
         month,
-        amount: Number(item.amount),
+        amount,
+        extras, // ✅ NEW: [{label, amount}]
         status: "Pending",
         memberName: getMemberName(member),
         memberType: member.memberType,
@@ -120,48 +142,71 @@ const createMaintenance = async (req, res) => {
 
     const insertedDocs = await Maintenance.insertMany(maintenanceDocs);
 
-    const totalFlatExpense = validFlats.reduce(
-      (sum, item) => sum + Number(item.amount),
-      0
-    );
-    const totalShopExpense = validShops.reduce(
-      (sum, item) => sum + Number(item.amount),
-      0
-    );
+    // ── TOTALS (actual inserted docs se) — base = amount - extras ──
+    const totals = {
+      Flat: { base: 0, count: 0, first: 0 },
+      Shop: { base: 0, count: 0, first: 0 },
+      Other: { base: 0, count: 0, first: 0 },
+    };
+    let totalExtras = 0;
+    let totalExpectedAmount = 0;
+
+    for (const d of maintenanceDocs) {
+      const ex = sumExtras(d.extras);
+      const base = d.amount - ex;
+      const g = totals[groupOf(d.memberType)];
+      if (g.count === 0) g.first = base;
+      g.base += base;
+      g.count += 1;
+      totalExtras += ex;
+      totalExpectedAmount += d.amount;
+    }
 
     const monthRecord = await MaintenanceMonth.create({
       buildingCode,
       month,
-      totalFlatExpense,
-      totalShopExpense,
-      perFlat: validFlats[0]?.amount || 0,
-      perShop: validShops[0]?.amount || 0,
-      totalFlats: validFlats.length,
-      totalShops: validShops.length,
-      totalExpectedAmount: totalFlatExpense + totalShopExpense,
+      totalFlatExpense: totals.Flat.base,
+      totalShopExpense: totals.Shop.base,
+      totalOtherExpense: totals.Other.base, // ✅ NEW
+      perFlat: totals.Flat.first,
+      perShop: totals.Shop.first,
+      totalFlats: totals.Flat.count,
+      totalShops: totals.Shop.count,
+      totalOthers: totals.Other.count, // ✅ NEW
+      totalExtras, // ✅ NEW
+      totalExpectedAmount, // base + extras sab
     });
 
-    // ── NOTIFY EACH INSERTED DOC EXACTLY ONCE — flat/shop ke hisab se alag title ──
+    // ── NOTIFY EACH INSERTED DOC EXACTLY ONCE ──
     const io = req.app.get("io");
 
     for (const doc of insertedDocs) {
       const member = memberMap[doc.memberId.toString()];
       if (!member) continue;
 
-      // ✅ flat/shop ke hisab se alag title/message
-      const isShop = doc.memberType === "Shop";
-      const title = isShop
-        ? "Shop Maintenance Generated 🏪"
-        : "Flat Maintenance Generated 🏠";
-      const unitLabel = isShop ? "shop" : "flat";
-      const message = `Your ${unitLabel} maintenance for ${month} is ₹${doc.amount}. Please pay on time.`;
+      const group = groupOf(doc.memberType);
+      const title =
+        group === "Shop"
+          ? "Shop Maintenance Generated 🏪"
+          : group === "Flat"
+            ? "Flat Maintenance Generated 🏠"
+            : "Maintenance Generated 🏢";
+      const unitLabel =
+        group === "Other"
+          ? String(doc.memberType).toLowerCase()
+          : group.toLowerCase();
+
+      const extraText = doc.extras?.length
+        ? ` (incl. ${doc.extras.map((e) => `${e.label} ₹${e.amount}`).join(", ")})`
+        : "";
+      const message = `Your ${unitLabel} maintenance for ${month} is ₹${doc.amount}${extraText}. Please pay on time.`;
 
       const data = {
         maintenanceId: doc._id.toString(),
         month,
         amount: String(doc.amount),
         unitNo: String(doc.No || ""),
-        memberType: doc.memberType, // ✅ add — frontend ko flat/shop distinguish karne ke liye
+        memberType: doc.memberType,
         status: doc.status,
       };
 
@@ -184,7 +229,7 @@ const createMaintenance = async (req, res) => {
         "[SOCKET EMIT] notification →",
         room,
         "| type: MAINTENANCE_GENERATED |",
-        doc.memberType
+        doc.memberType,
       );
       io.to(room).emit("notification", {
         _id: notification._id.toString(),
@@ -208,14 +253,14 @@ const createMaintenance = async (req, res) => {
             "FCM send failed for member",
             member._id.toString(),
             ":",
-            fcmErr.message
+            fcmErr.message,
           );
         }
       }
     }
 
     console.log(
-      `[MAINTENANCE] ✅ Generated ${insertedDocs.length} records, sent ${insertedDocs.length} notifications`
+      `[MAINTENANCE] ✅ Generated ${insertedDocs.length} records, sent ${insertedDocs.length} notifications`,
     );
 
     return res.status(201).json({
