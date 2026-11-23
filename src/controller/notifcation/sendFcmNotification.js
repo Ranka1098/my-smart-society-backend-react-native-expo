@@ -26,6 +26,9 @@ export const sendFCM = async (tokens, title, body, data = {}) => {
   );
 
   const ch = pickChannel(stringData.type);
+  const ttl = stringData.type?.startsWith("SUBSCRIPTION_")
+    ? 24 * 60 * 60 * 1000 // 24 ghante
+    : 2 * 60 * 1000;
 
   try {
     const startTime = Date.now();
@@ -35,7 +38,7 @@ export const sendFCM = async (tokens, title, body, data = {}) => {
       data: stringData,
       android: {
         priority: "high",
-        ttl: 2 * 60 * 1000,
+        ttl,
         notification: {
           channelId: ch.channelId,
           sound: ch.sound,

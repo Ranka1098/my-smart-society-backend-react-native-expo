@@ -58,7 +58,7 @@ export const applyRenewal = async (building, opts) => {
   building.blockedAt = null;
   building.blockedReason = null;
   building.paymentStatus = "paid";
-
+  building.remindersSent = []; // naye cycle ke fresh reminders
   const historyEntry = {
     subscriptionType: "monthly",
     billedFlats,
