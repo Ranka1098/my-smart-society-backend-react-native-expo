@@ -40,6 +40,7 @@ const getMemberFullDetails = async (req, res) => {
         receiptNo: r.receiptNo,
         memberType: r.memberType,
         unitNo: r.unitNo,
+          createdAt: r.createdAt, // add
       })),
     });
   } catch (error) {

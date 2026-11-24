@@ -21,6 +21,7 @@ const getMemberMaintenanceHistory = async (req, res) => {
         receiptNo: r.receiptNo,
         memberType: r.memberType,
         No: r.No,
+          createdAt: r.createdAt, // add
       })),
     });
   } catch (error) {
